@@ -90,6 +90,9 @@ export interface TelemetryPayload {
   type: string;
   session_id: number | null;
   engine_type: string;
+  is_capturing?: boolean;
+  total_packets?: number;
+  session_duration?: number;
   adapters?: WirelessAdapter[];
   selected_adapter?: string;
   metrics: SpectrumMetrics;

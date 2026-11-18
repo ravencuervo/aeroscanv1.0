@@ -10,6 +10,7 @@ added_files = [
     (str(PROJECT_ROOT / "app" / "web" / "static"), os.path.join("app", "web", "static")),
     (str(PROJECT_ROOT / "app" / "web" / "templates"), os.path.join("app", "web", "templates")),
     (str(PROJECT_ROOT / "app" / "web" / "dist"), os.path.join("app", "web", "dist")),
+    (str(PROJECT_ROOT / "build_scripts" / "icon.ico"), "icon.ico"),
 ]
 
 hidden_imports = [
@@ -79,6 +80,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(PROJECT_ROOT / "build_scripts" / "icon.ico"),
 )
 
 coll = COLLECT(

@@ -3,12 +3,14 @@ import './Sidebar.css';
 
 interface SidebarProps {
   activeTab: string;
+  isCapturing?: boolean;
   onTabChange: (tab: string) => void;
   onLogout: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
+  isCapturing = true,
   onTabChange,
   onLogout,
 }) => {
@@ -23,6 +25,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 src="/images/logos/logo.svg"
                 alt="AeroScan Logo"
                 className="sidebar-logo-img"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.endsWith('/images/logos/logo.png')) {
+                    target.src = '/images/logos/logo.png';
+                  }
+                }}
               />
             </div>
             <div>
@@ -33,7 +41,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div className="sidebar-status-pill">
             <span>
-              <span className="sidebar-dot-active"></span> MOTOR RF: ACTIVO
+              <span
+                className="sidebar-dot-active"
+                style={{
+                  backgroundColor: isCapturing ? '#10b981' : '#f59e0b',
+                  boxShadow: isCapturing ? '0 0 8px #10b981' : '0 0 8px #f59e0b',
+                }}
+              ></span>{' '}
+              MOTOR RF: {isCapturing ? 'ACTIVO' : 'DETENIDO'}
             </span>
             <span>40MHz FFT</span>
           </div>

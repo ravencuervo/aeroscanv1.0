@@ -6,6 +6,7 @@ interface HeaderBarProps {
   user: User | null;
   engineType: string;
   isLive: boolean;
+  isCapturing?: boolean;
   activeTab?: string;
   onLogout: () => void;
   onNavigate?: (tab: string) => void;
@@ -15,6 +16,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   user,
   engineType,
   isLive,
+  isCapturing = true,
   activeTab = 'live',
   onLogout,
   onNavigate,
@@ -106,8 +108,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
       <div className="header-right-actions">
         <div className="header-status-badge">
-          <span className="header-status-dot" style={{ backgroundColor: isLive ? '#10b981' : '#f59e0b' }}></span>
-          <span>SDR: {engineType.toUpperCase()} {isLive ? 'En Línea' : 'Sincronizando...'}</span>
+          <span
+            className="header-status-dot"
+            style={{
+              backgroundColor: !isLive ? '#ef4444' : isCapturing ? '#10b981' : '#f59e0b',
+            }}
+          ></span>
+          <span>
+            SDR: {engineType.toUpperCase()}{' '}
+            {!isLive ? 'Sincronizando...' : isCapturing ? 'En Captura' : 'Detenido'}
+          </span>
         </div>
 
         <div className="header-fft-badge">

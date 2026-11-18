@@ -33,6 +33,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             src="/images/logos/logo.svg"
             alt="AeroScan Logo"
             className="brand-logo-img"
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (!target.src.endsWith('/images/logos/logo.png')) {
+                target.src = '/images/logos/logo.png';
+              }
+            }}
           />
         </div>
         <div className="brand-text">

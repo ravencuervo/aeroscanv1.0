@@ -6,28 +6,79 @@ interface CaptureControlBarProps {
   engineType: string;
   isCapturing: boolean;
   totalAps: number;
+  totalPackets?: number;
+  sessionDuration?: number;
   adapters?: WirelessAdapter[];
   selectedAdapter?: string;
   onSelectAdapter?: (adapterId: string) => void;
   onToggleCapture: () => void;
   onExportReports: () => void;
+  isPaused?: boolean;
+  onTogglePause?: () => void;
+  band24?: boolean;
+  band5?: boolean;
+  onToggleBand?: (band: '2.4' | '5') => void;
 }
 
 export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
   engineType: _engineType,
   isCapturing,
   totalAps,
+  totalPackets,
+  sessionDuration,
   adapters = [],
   selectedAdapter = 'ALL',
   onSelectAdapter,
   onToggleCapture,
   onExportReports: _onExportReports,
+  isPaused: externalIsPaused,
+  onTogglePause,
+  band24: externalBand24,
+  band5: externalBand5,
+  onToggleBand,
 }) => {
-  const [band24, setBand24] = useState(true);
-  const [band5, setBand5] = useState(true);
-  const [isPaused, setIsPaused] = useState(false);
-  const [secondsElapsed, setSecondsElapsed] = useState(878);
+  const [internalBand24, setInternalBand24] = useState(true);
+  const [internalBand5, setInternalBand5] = useState(true);
+  const [internalIsPaused, setInternalIsPaused] = useState(false);
 
+  const band24 = externalBand24 !== undefined ? externalBand24 : internalBand24;
+  const band5 = externalBand5 !== undefined ? externalBand5 : internalBand5;
+  const isPaused = externalIsPaused !== undefined ? externalIsPaused : internalIsPaused;
+
+  const handleToggleBand24 = () => {
+    if (onToggleBand) {
+      onToggleBand('2.4');
+    } else {
+      setInternalBand24(!internalBand24);
+    }
+  };
+
+  const handleToggleBand5 = () => {
+    if (onToggleBand) {
+      onToggleBand('5');
+    } else {
+      setInternalBand5(!internalBand5);
+    }
+  };
+
+  const handleTogglePause = () => {
+    if (onTogglePause) {
+      onTogglePause();
+    } else {
+      setInternalIsPaused(!internalIsPaused);
+    }
+  };
+
+  const [secondsElapsed, setSecondsElapsed] = useState(sessionDuration || 0);
+
+  // Sync with session duration if provided from backend
+  useEffect(() => {
+    if (sessionDuration !== undefined && sessionDuration > 0) {
+      setSecondsElapsed(sessionDuration);
+    }
+  }, [sessionDuration]);
+
+  // Tick timer only while actively capturing and not paused
   useEffect(() => {
     if (!isCapturing || isPaused) return;
     const interval = setInterval(() => {
@@ -43,7 +94,9 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
     return `${hrs}:${mins}:${secs}`;
   };
 
-  const packetCount = 84219 + (secondsElapsed - 878) * 142 + totalAps * 18;
+  const packetCount = (totalPackets !== undefined && totalPackets > 0)
+    ? totalPackets
+    : (secondsElapsed * 24 + totalAps * 8);
 
   const currentActiveAdapter = adapters.find((a) => a.id === selectedAdapter);
 
@@ -95,7 +148,12 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
           <div className="adapter-item">
             <span className="adapter-item-label">ESTADO DE HARDWARE</span>
             <div className="adapter-item-val">
-              {selectedAdapter === 'ALL' ? (
+              {!isCapturing ? (
+                <>
+                  <i className="bi bi-pause-circle-fill" style={{ color: '#f59e0b' }}></i>
+                  <span style={{ color: '#f59e0b', fontWeight: 600 }}>Captura Detenida (Modo Standby)</span>
+                </>
+              ) : selectedAdapter === 'ALL' ? (
                 <>
                   <i className="bi bi-check2" style={{ color: 'inherit' }}></i>
                   <span style={{ fontWeight: 600 }}>Multi-Transceptor Activo:</span>
@@ -131,7 +189,7 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
         <div className="session-stats-group">
           <div className="session-stat-item">
             <i className="bi bi-clock"></i>
-            <span>SESIÓN: {formatTime(secondsElapsed)} {isCapturing ? 'en curso' : 'pausada'}</span>
+            <span>SESIÓN: {formatTime(secondsElapsed)} {isCapturing ? (isPaused ? 'buffer en pausa' : 'en curso') : 'detenida'}</span>
           </div>
 
           <div className="session-stat-item">
@@ -148,7 +206,8 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
 
           <button
             className={`band-pill ${band24 ? 'active' : ''}`}
-            onClick={() => setBand24(!band24)}
+            onClick={handleToggleBand24}
+            title="Activar / Desactivar visualización de banda 2.4 GHz"
           >
             <span className="band-pill-dot"></span>
             2.4 GHz: {band24 ? 'ACTIVO' : 'INACTIVO'}
@@ -156,7 +215,8 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
 
           <button
             className={`band-pill ${band5 ? 'active' : ''}`}
-            onClick={() => setBand5(!band5)}
+            onClick={handleToggleBand5}
+            title="Activar / Desactivar visualización de banda 5 GHz"
           >
             <span className="band-pill-dot"></span>
             5 GHz: {band5 ? 'ACTIVO' : 'INACTIVO'}
@@ -175,14 +235,19 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
         </div>
 
         <div className="action-buttons-group">
-          <button className="btn-tactical-stop" onClick={onToggleCapture}>
+          <button
+            className={`btn-tactical-stop ${!isCapturing ? 'btn-tactical-start' : ''}`}
+            onClick={onToggleCapture}
+            title={isCapturing ? 'Detener el motor de escaneo de radiofrecuencia' : 'Iniciar o reanudar el barrido en vivo'}
+          >
             <i className={`bi ${isCapturing ? 'bi-stop-fill' : 'bi-play-fill'}`}></i>
             <span>{isCapturing ? 'DETENER CAPTURA' : 'INICIAR CAPTURA'}</span>
           </button>
 
           <button
-            className="btn-tactical-pause"
-            onClick={() => setIsPaused(!isPaused)}
+            className={`btn-tactical-pause ${isPaused ? 'active-paused' : ''}`}
+            onClick={handleTogglePause}
+            title={isPaused ? 'Reanudar actualización de visualización' : 'Congelar el buffer de visualización en pantalla'}
           >
             <i className={`bi ${isPaused ? 'bi-play-fill' : 'bi-pause-fill'}`}></i>
             <span>{isPaused ? 'REANUDAR BUFFER' : 'PAUSAR BUFFER'}</span>
@@ -203,3 +268,4 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
     </div>
   );
 };
+

@@ -7,7 +7,7 @@ import uvicorn
 import multiprocessing
 import webview
 
-from app.core.config import SERVER_HOST, SERVER_PORT
+from app.core.config import SERVER_HOST, SERVER_PORT, BASE_DIR, DATA_DIR
 from app.main import app
 
 def start_server():
@@ -22,16 +22,20 @@ def start_server():
     server = uvicorn.Server(config)
     server.run()
 
+def is_server_running(url: str) -> bool:
+    """Check if server is already responding."""
+    try:
+        r = requests.get(f"{url}/api/status", timeout=0.6)
+        return r.status_code == 200
+    except Exception:
+        return False
+
 def wait_for_server(url: str, timeout: float = 20.0) -> bool:
     """Poll until server responds with 200 OK."""
     start = time.time()
     while time.time() - start < timeout:
-        try:
-            r = requests.get(f"{url}/api/status", timeout=0.5)
-            if r.status_code == 200:
-                return True
-        except Exception:
-            pass
+        if is_server_running(url):
+            return True
         time.sleep(0.2)
     return False
 
@@ -39,18 +43,21 @@ def main():
     multiprocessing.freeze_support()
     print("=" * 65)
     print("   AEROSCAN — Aplicación de Escritorio (Desktop App)")
-    print("   Universidad Nacional del Altiplano - Informática")
+    print("   Universidad Nacional del Altiplano – Puno")
+    print("   Facultad de Ingeniería Estadística e Informática")
     print("=" * 65)
 
     url = f"http://{SERVER_HOST}:{SERVER_PORT}"
 
-    # Start FastAPI server in background thread
-    server_thread = threading.Thread(target=start_server, daemon=True)
-    server_thread.start()
-
-    print(f"[*] Esperando inicialización del núcleo en {url}...")
-    if not wait_for_server(url):
-        print("[!] Advertencia: Tiempo de espera agotado esperando el servidor.")
+    if is_server_running(url):
+        print(f"[*] Núcleo de AeroScan activo y detectado en {url}.")
+    else:
+        # Start FastAPI server in background thread
+        server_thread = threading.Thread(target=start_server, daemon=True)
+        server_thread.start()
+        print(f"[*] Esperando inicialización del núcleo en {url}...")
+        if not wait_for_server(url):
+            print("[!] Advertencia: Tiempo de espera agotado esperando el servidor.")
 
     print("[*] Abriendo ventana de escritorio nativa de AeroScan...")
     
@@ -65,7 +72,18 @@ def main():
             background_color="#0a0e17",
             confirm_close=False
         )
-        webview.start(gui="edgechromium", debug=False)
+        # Resolve application window and taskbar icon
+        icon_path = DATA_DIR / "icon.ico"
+        if not icon_path.exists():
+            icon_path = BASE_DIR / "build_scripts" / "icon.ico"
+        if not icon_path.exists():
+            icon_path = BASE_DIR / "app" / "web" / "static" / "favicon.ico"
+
+        webview.start(
+            gui="edgechromium",
+            debug=False,
+            icon=str(icon_path) if icon_path.exists() else None
+        )
     except Exception as e:
         print(f"[!] Modo nativo no disponible ({e}). Abriendo en navegador...")
         import webbrowser

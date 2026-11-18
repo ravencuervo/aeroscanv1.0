@@ -23,6 +23,10 @@ export const App: React.FC = () => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('aeroscan_token'));
   const [activeNav, setActiveNav] = useState('dashboard');
   const [isCapturing, setIsCapturing] = useState(true);
+  const [totalPackets, setTotalPackets] = useState<number>(0);
+  const [sessionDuration, setSessionDuration] = useState<number>(0);
+  const [bandFilter, setBandFilter] = useState({ band24: true, band5: true });
+  const [isBufferPaused, setIsBufferPaused] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [engineType, setEngineType] = useState('windows');
   const [adapters, setAdapters] = useState<WirelessAdapter[]>([]);
@@ -33,8 +37,10 @@ export const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
+  const isBufferPausedRef = useRef(isBufferPaused);
+  isBufferPausedRef.current = isBufferPaused;
 
-  // Validate authentication on startup
+  // Validate authentication and query initial hardware & capture state on startup
   useEffect(() => {
     const checkAuth = async () => {
       const storedToken = localStorage.getItem('aeroscan_token');
@@ -67,6 +73,24 @@ export const App: React.FC = () => {
     };
 
     checkAuth();
+
+    // Fetch initial capture status from backend
+    const fetchCaptureStatus = async () => {
+      try {
+        const res = await fetch('/api/capture/status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.is_capturing !== undefined) setIsCapturing(Boolean(data.is_capturing));
+          if (data.total_packets !== undefined) setTotalPackets(data.total_packets);
+          if (data.elapsed_seconds !== undefined) setSessionDuration(data.elapsed_seconds);
+          if (data.engine_type) setEngineType(data.engine_type);
+          if (data.selected_adapter) setSelectedAdapter(data.selected_adapter);
+        }
+      } catch (err) {
+        console.warn('Error fetching capture status:', err);
+      }
+    };
+    fetchCaptureStatus();
 
     // Fetch detected Wi-Fi hardware adapters (1, 2, or multi-adapter)
     const fetchAdapters = async () => {
@@ -110,9 +134,14 @@ export const App: React.FC = () => {
         try {
           const data: TelemetryPayload = JSON.parse(event.data);
           if (data.type === 'telemetry_update') {
-            setAccessPoints(data.access_points || []);
-            setMetrics(data.metrics || null);
-            setRecommendations(data.recommendations || null);
+            if (!isBufferPausedRef.current) {
+              setAccessPoints(data.access_points || []);
+              setMetrics(data.metrics || null);
+              setRecommendations(data.recommendations || null);
+            }
+            if (data.is_capturing !== undefined) setIsCapturing(Boolean(data.is_capturing));
+            if (data.total_packets !== undefined) setTotalPackets(data.total_packets);
+            if (data.session_duration !== undefined) setSessionDuration(data.session_duration);
             if (data.engine_type) setEngineType(data.engine_type);
             if (data.adapters) setAdapters(data.adapters);
             if (data.selected_adapter) setSelectedAdapter(data.selected_adapter);
@@ -195,6 +224,30 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleToggleCapture = async () => {
+    try {
+      const endpoint = isCapturing ? '/api/capture/stop' : '/api/capture/start';
+      const res = await fetch(endpoint, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setIsCapturing(Boolean(data.is_capturing));
+        if (data.total_packets !== undefined) setTotalPackets(data.total_packets);
+      }
+    } catch (err) {
+      console.error('Error toggling capture:', err);
+    }
+  };
+
+  const handleToggleBand = (band: '2.4' | '5') => {
+    setBandFilter((prev) => {
+      if (band === '2.4') {
+        return { ...prev, band24: !prev.band24 };
+      } else {
+        return { ...prev, band5: !prev.band5 };
+      }
+    });
+  };
+
   const handleStartSession = async (name: string, location: string, engine: string, adapterId: string = 'ALL') => {
     const res = await fetch('/api/session/start', {
       method: 'POST',
@@ -210,7 +263,18 @@ export const App: React.FC = () => {
     if (!res.ok) {
       throw new Error('No se pudo iniciar la sesión');
     }
+    setIsCapturing(true);
+    setTotalPackets(0);
+    setSessionDuration(0);
   };
+
+  const filteredAccessPoints = accessPoints.filter((ap) => {
+    const is24 = ap.band === '2.4GHz' || ap.channel <= 14;
+    const is5 = ap.band === '5GHz' || ap.channel > 14;
+    if (is24 && !bandFilter.band24) return false;
+    if (is5 && !bandFilter.band5) return false;
+    return true;
+  });
 
   return (
     <>
@@ -220,6 +284,7 @@ export const App: React.FC = () => {
         {/* Left Fixed Sidebar matching reference layout */}
         <Sidebar
           activeTab={activeNav}
+          isCapturing={isCapturing}
           onTabChange={setActiveNav}
           onLogout={handleLogout}
         />
@@ -230,6 +295,7 @@ export const App: React.FC = () => {
             user={user}
             engineType={engineType}
             isLive={isLive}
+            isCapturing={isCapturing}
             activeTab={activeNav}
             onLogout={handleLogout}
             onNavigate={setActiveNav}
@@ -248,29 +314,44 @@ export const App: React.FC = () => {
             {/* 2. Captura en Vivo */}
             {activeNav === 'live' && (
               <>
-                <DaemonNoticeBanner isLive={isLive} engineType={engineType} />
+                <DaemonNoticeBanner
+                  isLive={isLive}
+                  engineType={engineType}
+                  isCapturing={isCapturing}
+                  onToggleCapture={handleToggleCapture}
+                />
 
                 <CaptureControlBar
                   engineType={engineType}
                   isCapturing={isCapturing}
-                  totalAps={accessPoints.length}
+                  totalAps={filteredAccessPoints.length}
+                  totalPackets={totalPackets}
+                  sessionDuration={sessionDuration}
                   adapters={adapters}
                   selectedAdapter={selectedAdapter}
                   onSelectAdapter={handleSelectAdapter}
-                  onToggleCapture={() => setIsCapturing(!isCapturing)}
+                  onToggleCapture={handleToggleCapture}
                   onExportReports={handleExportPdf}
+                  isPaused={isBufferPaused}
+                  onTogglePause={() => setIsBufferPaused(!isBufferPaused)}
+                  band24={bandFilter.band24}
+                  band5={bandFilter.band5}
+                  onToggleBand={handleToggleBand}
                 />
 
                 <div className="main-viz-split-grid">
-                  <OscillogramChart accessPoints={accessPoints} />
+                  <OscillogramChart accessPoints={filteredAccessPoints} />
                   <SdrTelemetryPanel
                     adapters={adapters}
                     selectedAdapter={selectedAdapter}
+                    onSelectAdapter={handleSelectAdapter}
+                    isCapturing={isCapturing}
+                    totalPackets={totalPackets}
                     onSaveFrame={handleExportPdf}
                   />
                 </div>
 
-                <ChannelSweepStrip accessPoints={accessPoints} />
+                <ChannelSweepStrip accessPoints={filteredAccessPoints} isCapturing={isCapturing} />
               </>
             )}
 

@@ -4,6 +4,7 @@ import './ChannelSweepStrip.css';
 
 interface ChannelSweepStripProps {
   accessPoints: ScannedAP[];
+  isCapturing?: boolean;
 }
 
 interface ChannelDef {
@@ -28,7 +29,7 @@ const CHANNELS_CONFIG: ChannelDef[] = [
   { ch: 165, freq: '5.825G', defaultStatus: 'clear' },
 ];
 
-export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoints }) => {
+export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoints, isCapturing = true }) => {
   const getChannelColor = (status: 'clear' | 'moderate' | 'high') => {
     switch (status) {
       case 'clear':
@@ -51,8 +52,17 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
           </span>
         </div>
 
-        <div className="sweep-active-badge">
-          <span>BARRIDO ACTIVO: CH 36 → CH 165</span>
+        <div
+          className="sweep-active-badge"
+          style={{
+            borderColor: isCapturing ? 'var(--color5)' : '#f59e0b',
+            color: isCapturing ? 'var(--color6)' : '#fde68a',
+            backgroundColor: isCapturing ? 'var(--color1)' : 'rgba(245, 158, 11, 0.15)',
+          }}
+        >
+          <span>
+            {isCapturing ? 'BARRIDO ACTIVO: CH 36 → CH 165' : 'BARRIDO EN ESPERA (DETENIDO)'}
+          </span>
         </div>
 
         <div className="sweep-legend-group">

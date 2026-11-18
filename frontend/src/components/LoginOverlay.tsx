@@ -80,6 +80,12 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
                 src="/images/logos/logo.svg"
                 alt="AeroScan Logo"
                 className="login-logo-img"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.endsWith('/images/logos/logo.png')) {
+                    target.src = '/images/logos/logo.png';
+                  }
+                }}
               />
             </div>
             <div className="login-titles">
@@ -141,6 +147,36 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
               )}
             </button>
           </form>
+
+          <div className="login-divider">
+            <span>o</span>
+          </div>
+
+          <div className="login-register-section">
+            <span className="login-register-label">¿Aún no tienes una cuenta de operador?</span>
+            <button
+              type="button"
+              className="login-register-btn"
+              onClick={async () => {
+                const registerUrl = 'https://aeroscan.unap.edu.pe/registro';
+                try {
+                  await fetch('/api/system/open-browser', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: registerUrl }),
+                  });
+                } catch {
+                  // Ignore backend fetch error in offline/standalone client
+                }
+                window.open(registerUrl, '_blank', 'noopener,noreferrer');
+              }}
+              title="Abrir formulario de registro en el navegador"
+            >
+              <i className="bi bi-person-plus-fill"></i>
+              <span>Registrarse / Solicitar Licencia</span>
+              <i className="bi bi-box-arrow-up-right login-external-icon"></i>
+            </button>
+          </div>
         </div>
       </div>
 

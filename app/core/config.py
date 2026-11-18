@@ -48,3 +48,7 @@ WARNING_AP_DENSITY_24 = 3
 MIN_ACCEPTABLE_RSSI = -75  # dBm
 GOOD_RSSI = -65  # dBm
 EXCELLENT_RSSI = -50  # dBm
+
+# External Registration & License Portal URL
+REGISTRATION_URL = "https://aeroscan.unap.edu.pe/registro"
+

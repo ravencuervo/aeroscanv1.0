@@ -135,6 +135,16 @@ async function submitLogin() {
   }
 }
 
+function openRegisterLink() {
+  const registerUrl = "https://aeroscan.unap.edu.pe/registro";
+  fetch("/api/system/open-browser", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: registerUrl })
+  }).catch(() => {});
+  window.open(registerUrl, "_blank", "noopener,noreferrer");
+}
+
 async function logoutUser() {
   const token = localStorage.getItem("aeroscan_token");
   if (token) {

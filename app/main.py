@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import logging
 import asyncio
 from pathlib import Path
@@ -12,7 +13,7 @@ from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.core.config import SERVER_HOST, SERVER_PORT, REPORTS_DIR, BASE_DIR
+from app.core.config import SERVER_HOST, SERVER_PORT, REPORTS_DIR, BASE_DIR, REGISTRATION_URL
 from app.core.database import init_database, DatabaseManager
 from app.capture.hal import ScannedAP, BaseCaptureEngine
 from app.capture import create_capture_engine
@@ -42,10 +43,20 @@ TEMPLATES_DIR = BASE_DIR / "app" / "web" / "templates"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 
-# Mount static and assets files
+# Mount static, assets and images files
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 if (DIST_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
+
+# Mount images directory (supports dist, static and public sources)
+IMAGES_DIR = DIST_DIR / "images"
+if not IMAGES_DIR.exists():
+    IMAGES_DIR = STATIC_DIR / "images"
+if not IMAGES_DIR.exists():
+    IMAGES_DIR = BASE_DIR / "frontend" / "public" / "images"
+if IMAGES_DIR.exists():
+    app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
+
 
 # State Management
 class AppState:
@@ -66,6 +77,8 @@ class AppState:
         self.enable_6ghz: bool = False
         self.critical_rssi_threshold: int = -80
         self.max_ap_congestion: int = 3
+        self.total_frames_captured: int = 0
+        self.session_start_time: Optional[float] = None
 
 state = AppState()
 
@@ -101,12 +114,17 @@ class ApplyChannelRequest(BaseModel):
     band: str
     ssid: Optional[str] = None
 
+class OpenBrowserRequest(BaseModel):
+    url: Optional[str] = None
+
+
 # Active session tokens: token -> user dict
 ACTIVE_TOKENS: Dict[str, Dict[str, Any]] = {}
 
 # Callback for capture engine
 def on_capture_callback(aps: List[ScannedAP]):
     state.latest_aps = aps
+    state.total_frames_captured += len(aps)
     # Compute metrics
     metrics = SpectrumAnalyzer.compute_channel_metrics(aps)
     state.latest_metrics = metrics
@@ -137,6 +155,7 @@ async def startup_event():
         engine_type=state.engine_type,
         notes="Inicio automático de AeroScan"
     )
+    state.session_start_time = time.time()
     state.engine.start()
 
 @app.on_event("shutdown")
@@ -161,6 +180,52 @@ async def serve_dashboard():
     with open(index_file, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
+# Explicit routes for Logo and Favicon assets
+@app.get("/images/logos/logo.svg")
+async def serve_logo_svg():
+    for path in [
+        DIST_DIR / "images" / "logos" / "logo.svg",
+        STATIC_DIR / "images" / "logos" / "logo.svg",
+        BASE_DIR / "frontend" / "public" / "images" / "logos" / "logo.svg",
+    ]:
+        if path.exists():
+            return FileResponse(str(path), media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="Logo SVG not found")
+
+@app.get("/images/logos/logo.png")
+async def serve_logo_png():
+    for path in [
+        DIST_DIR / "images" / "logos" / "logo.png",
+        STATIC_DIR / "images" / "logos" / "logo.png",
+        BASE_DIR / "frontend" / "public" / "images" / "logos" / "logo.png",
+    ]:
+        if path.exists():
+            return FileResponse(str(path), media_type="image/png")
+    raise HTTPException(status_code=404, detail="Logo PNG not found")
+
+@app.get("/favicon.ico")
+async def serve_favicon_ico():
+    for path in [
+        DIST_DIR / "favicon.ico",
+        STATIC_DIR / "favicon.ico",
+        BASE_DIR / "frontend" / "public" / "favicon.ico",
+        DIST_DIR / "favicon.svg",
+    ]:
+        if path.exists():
+            return FileResponse(str(path))
+    return HTMLResponse("", status_code=204)
+
+@app.get("/favicon.svg")
+async def serve_favicon_svg():
+    for path in [
+        DIST_DIR / "favicon.svg",
+        STATIC_DIR / "favicon.svg",
+        BASE_DIR / "frontend" / "public" / "favicon.svg",
+    ]:
+        if path.exists():
+            return FileResponse(str(path), media_type="image/svg+xml")
+    return HTMLResponse("", status_code=204)
+
 # Authentication Endpoints
 @app.post("/api/auth/login")
 async def login(req: LoginRequest):
@@ -183,6 +248,24 @@ async def logout(token: Optional[str] = None):
     if token and token in ACTIVE_TOKENS:
         del ACTIVE_TOKENS[token]
     return {"status": "logged_out"}
+
+@app.get("/api/auth/register-url")
+async def get_registration_url():
+    """Returns the default external registration URL."""
+    return {"url": REGISTRATION_URL}
+
+@app.post("/api/system/open-browser")
+async def open_external_browser(req: OpenBrowserRequest):
+    """Open an external link in the user's default system browser (Edge, Chrome, etc.)."""
+    import webbrowser
+    target_url = (req.url.strip() if req.url else "") or REGISTRATION_URL
+    try:
+        webbrowser.open(target_url)
+        return {"status": "opened", "url": target_url}
+    except Exception as e:
+        logger.error(f"Error opening browser: {e}")
+        return {"status": "error", "detail": str(e), "url": target_url}
+
 
 # Hardware Adapters Endpoints
 @app.get("/api/hardware/adapters")
@@ -219,17 +302,124 @@ async def select_hardware_adapter(req: SelectAdapterRequest):
 @app.get("/api/status")
 async def get_status():
     adapters = [a.to_dict() for a in state.engine.get_adapters()] if (state.engine and hasattr(state.engine, "get_adapters")) else []
+    is_running = bool(state.engine and state.engine.is_running)
+    elapsed = int(time.time() - state.session_start_time) if (state.session_start_time and is_running) else 0
     return {
         "status": "online",
         "current_session_id": state.current_session_id,
         "engine_type": state.engine_type,
         "engine_class": state.engine.__class__.__name__ if state.engine else "None",
-        "is_capturing": state.engine.is_running if state.engine else False,
+        "is_capturing": is_running,
         "total_aps_detected": len(state.latest_aps),
+        "total_packets": state.total_frames_captured,
+        "session_duration": elapsed,
         "total_adapters_detected": len(adapters),
         "adapters": adapters,
         "selected_adapter": getattr(state.engine, "selected_adapter", state.selected_adapter) if state.engine else state.selected_adapter
     }
+
+@app.post("/api/capture/start")
+async def start_capture(req: Optional[StartSessionRequest] = None):
+    """Start or resume live RF spectrum capture."""
+    if not state.engine:
+        engine_type = req.engine_type if (req and req.engine_type) else state.engine_type
+        state.engine = create_capture_engine(engine_type=engine_type, callback=on_capture_callback)
+
+    if req and req.adapter_id:
+        state.selected_adapter = req.adapter_id
+        if hasattr(state.engine, "set_active_adapter"):
+            state.engine.set_active_adapter(req.adapter_id)
+
+    if not state.current_session_id:
+        name = req.name if (req and req.name) else "Captura en Vivo"
+        location = req.location if (req and req.location) else "Entorno Local"
+        user_id = req.user_id if req else None
+        state.current_session_id = DatabaseManager.create_session(
+            name=name,
+            location=location,
+            engine_type=state.engine_type,
+            notes="Sesión iniciada manualmente por usuario",
+            user_id=user_id
+        )
+        state.session_start_time = time.time()
+    elif state.session_start_time is None:
+        state.session_start_time = time.time()
+
+    state.engine.start()
+    logger.info(f"Capture started. Session #{state.current_session_id}, Engine: {state.engine_type}")
+    return {
+        "status": "started",
+        "is_capturing": True,
+        "session_id": state.current_session_id,
+        "engine_type": state.engine_type,
+        "selected_adapter": getattr(state.engine, "selected_adapter", state.selected_adapter) if state.engine else state.selected_adapter,
+        "total_packets": state.total_frames_captured
+    }
+
+@app.post("/api/capture/stop")
+async def stop_capture():
+    """Stop active live RF spectrum capture without necessarily deleting session."""
+    if state.engine and state.engine.is_running:
+        state.engine.stop()
+    logger.info(f"Capture stopped. Session #{state.current_session_id}")
+    return {
+        "status": "stopped",
+        "is_capturing": False,
+        "session_id": state.current_session_id,
+        "total_packets": state.total_frames_captured
+    }
+
+@app.post("/api/capture/toggle")
+async def toggle_capture():
+    """Toggle between starting and stopping capture."""
+    is_running = bool(state.engine and state.engine.is_running)
+    if is_running:
+        return await stop_capture()
+    else:
+        return await start_capture()
+
+@app.get("/api/capture/status")
+async def get_capture_status():
+    """Quick endpoint to check live capture state."""
+    is_running = bool(state.engine and state.engine.is_running)
+    elapsed = int(time.time() - state.session_start_time) if (state.session_start_time and is_running) else 0
+    return {
+        "is_capturing": is_running,
+        "session_id": state.current_session_id,
+        "total_packets": state.total_frames_captured,
+        "elapsed_seconds": elapsed,
+        "engine_type": state.engine_type,
+        "selected_adapter": getattr(state.engine, "selected_adapter", state.selected_adapter) if state.engine else state.selected_adapter,
+        "total_aps": len(state.latest_aps)
+    }
+
+@app.get("/api/export/pcap")
+async def export_pcap_dump():
+    """Exports structured frames dump in JSON/PCAP-compatible format."""
+    samples = []
+    if state.current_session_id:
+        samples = DatabaseManager.get_session_samples(state.current_session_id, limit=5000)
+    if not samples and state.latest_aps:
+        samples = [ap.to_dict() for ap in state.latest_aps]
+
+    export_payload = {
+        "format": "AeroScan-RF-Dump-v1",
+        "timestamp": time.time(),
+        "session_id": state.current_session_id,
+        "engine": state.engine_type,
+        "adapter": state.selected_adapter,
+        "total_records": len(samples),
+        "frames": samples
+    }
+
+    from fastapi.responses import Response
+    json_bytes = json.dumps(export_payload, indent=2, ensure_ascii=False).encode("utf-8")
+    filename = f"aeroscan_dump_session_{state.current_session_id or 'live'}_{int(time.time())}.json"
+    return Response(
+        content=json_bytes,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 @app.post("/api/session/start")
 async def start_session(req: StartSessionRequest):
@@ -252,10 +442,12 @@ async def start_session(req: StartSessionRequest):
         user_id=req.user_id
     )
     state.current_session_id = session_id
+    state.total_frames_captured = 0
+    state.session_start_time = time.time()
     state.engine.start()
 
     logger.info(f"Started new session #{session_id} using engine: {state.engine_type} (adapter: {state.selected_adapter})")
-    return {"session_id": session_id, "engine_type": state.engine_type, "selected_adapter": state.selected_adapter, "status": "started"}
+    return {"session_id": session_id, "engine_type": state.engine_type, "selected_adapter": state.selected_adapter, "status": "started", "is_capturing": True}
 
 @app.post("/api/session/stop")
 async def stop_session():
@@ -265,8 +457,9 @@ async def stop_session():
         DatabaseManager.end_session(state.current_session_id)
         last_id = state.current_session_id
         state.current_session_id = None
-        return {"status": "stopped", "session_id": last_id}
-    return {"status": "no_active_session"}
+        state.session_start_time = None
+        return {"status": "stopped", "session_id": last_id, "is_capturing": False}
+    return {"status": "no_active_session", "is_capturing": False}
 
 # Application Settings & Configuration Endpoints
 @app.get("/api/config")
@@ -469,10 +662,15 @@ async def websocket_spectrum(websocket: WebSocket):
         while True:
             # Send latest metrics, AP list and hardware adapters
             adapters = [a.to_dict() for a in state.engine.get_adapters()] if (state.engine and hasattr(state.engine, "get_adapters")) else []
+            is_running = bool(state.engine and state.engine.is_running)
+            elapsed = int(time.time() - state.session_start_time) if (state.session_start_time and is_running) else 0
             payload = {
                 "type": "telemetry_update",
                 "session_id": state.current_session_id,
                 "engine_type": state.engine_type,
+                "is_capturing": is_running,
+                "total_packets": state.total_frames_captured,
+                "session_duration": elapsed,
                 "adapters": adapters,
                 "selected_adapter": getattr(state.engine, "selected_adapter", state.selected_adapter) if state.engine else state.selected_adapter,
                 "metrics": state.latest_metrics,
