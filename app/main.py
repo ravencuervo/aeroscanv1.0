@@ -17,7 +17,8 @@ from pydantic import BaseModel
 
 from app.core.config import SERVER_HOST, SERVER_PORT, REPORTS_DIR, BASE_DIR, DATA_DIR, DB_PATH, REGISTRATION_URL
 from app.core.database import init_database, DatabaseManager
-from app.capture.hal import ScannedAP, BaseCaptureEngine, channel_to_frequency
+from app.core.wsl_manager import WSLManager
+from app.capture.hal import ScannedAP, BaseCaptureEngine, channel_to_frequency, rssi_to_quality, lookup_vendor
 from app.capture import create_capture_engine
 from app.analysis.metrics import SpectrumAnalyzer
 from app.analysis.optimizer import SpectrumOptimizer
@@ -118,6 +119,9 @@ class ApplyChannelRequest(BaseModel):
 
 class OpenBrowserRequest(BaseModel):
     url: Optional[str] = None
+
+class PushFramesRequest(BaseModel):
+    frames: List[Dict[str, Any]]
 
 
 # Active session tokens: token -> user dict
@@ -700,6 +704,69 @@ async def vacuum_database_endpoint():
     """Execute VACUUM on SQLite database to compact file and optimize page indexes."""
     res = DatabaseManager.vacuum_database()
     return res
+
+# ==========================================
+# WSL2 & Scapy Monitor Mode Extension Endpoints
+# ==========================================
+@app.get("/api/wsl/status")
+async def get_wsl_status():
+    """Return complete WSL2, USB/IP and Monitor Mode diagnostic state."""
+    return WSLManager.get_full_status()
+
+@app.post("/api/wsl/install")
+async def trigger_wsl_install():
+    """Generate and launch the automated 1-click Windows installer script for WSL2 and USB/IP."""
+    return WSLManager.launch_installer()
+
+@app.get("/api/wsl/installer-script")
+async def get_wsl_installer_script():
+    """Download the batch installer script for WSL2 and Scapy monitor mode."""
+    path = WSLManager.generate_installer_batch_script()
+    return FileResponse(path, filename="setup_wsl_monitor_extension.bat", media_type="application/x-bat")
+
+@app.post("/api/capture/push_frames")
+async def push_external_frames(req: PushFramesRequest):
+    """Ingest raw 802.11 monitor frames from WSL2 Scapy agent."""
+    if not req.frames:
+        return {"status": "ok", "ingested": 0}
+
+    new_aps: List[ScannedAP] = []
+    now = time.time()
+    for f in req.frames:
+        bssid = str(f.get("bssid", "")).upper()
+        if not bssid or bssid == "00:00:00:00:00:00":
+            continue
+        try:
+            ch = int(f.get("channel", 1))
+        except (ValueError, TypeError):
+            ch = 1
+        try:
+            rssi = int(f.get("rssi", -75))
+        except (ValueError, TypeError):
+            rssi = -75
+        ssid = f.get("ssid", "<Red Oculta>")
+        band = "5GHz" if ch >= 36 else "2.4GHz"
+        freq = channel_to_frequency(ch)
+        quality = rssi_to_quality(rssi)
+        vendor = lookup_vendor(bssid)
+        new_aps.append(ScannedAP(
+            bssid=bssid,
+            ssid=ssid,
+            channel=ch,
+            frequency_mhz=freq,
+            band=band,
+            rssi=rssi,
+            signal_quality=quality,
+            security=f.get("frame_type", "802.11 Monitor"),
+            channel_width=20,
+            vendor=vendor,
+            timestamp=now,
+            adapter_name="WSL2 Scapy Monitor"
+        ))
+
+    if new_aps:
+        on_capture_callback(new_aps)
+    return {"status": "ok", "ingested": len(new_aps)}
 
 def _prepare_session_report_data(session_id: Optional[int] = None):
     if session_id:

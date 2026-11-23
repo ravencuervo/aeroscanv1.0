@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { WirelessAdapter } from '../types/spectrum';
+import { WslMonitorModal } from './WslMonitorModal';
 import './ConfigView.css';
 
 interface ConfigViewProps {
@@ -27,6 +28,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [isVacuuming, setIsVacuuming] = useState(false);
   const [vacuumMessage, setVacuumMessage] = useState<string | null>(null);
+  const [showWslModal, setShowWslModal] = useState(false);
 
   const handleVacuum = async () => {
     setIsVacuuming(true);
@@ -225,6 +227,37 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                   Buscando dispositivos físicos conectados...
                 </span>
               )}
+            </div>
+
+            <div
+              style={{
+                marginTop: '12px',
+                borderTop: '1px solid rgba(88, 51, 131, 0.35)',
+                paddingTop: '10px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <i className="bi bi-ubuntu"></i>
+                  Extensión WSL2 Modo Monitor
+                </span>
+                <p style={{ margin: '2px 0 0', fontSize: '0.66rem', color: 'var(--text-muted)' }}>
+                  Captura tramas 802.11 crudas promiscuas con Scapy en Windows
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="btn-tactical-stop"
+                style={{ padding: '6px 12px', fontSize: '0.68rem', backgroundColor: '#0284c7', borderColor: '#38bdf8', whiteSpace: 'nowrap' }}
+                onClick={() => setShowWslModal(true)}
+              >
+                ASISTENTE WSL2
+              </button>
             </div>
           </div>
         </div>
@@ -466,6 +499,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
           </div>
         </div>
       </div>
+
+      <WslMonitorModal isOpen={showWslModal} onClose={() => setShowWslModal(false)} />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { WirelessAdapter, ScannedAP } from '../types/spectrum';
+import { WslMonitorModal } from './WslMonitorModal';
 import './SdrDiagnosticView.css';
 
 interface SdrDiagnosticViewProps {
@@ -19,6 +20,7 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
 }) => {
   const [latencyMs, setLatencyMs] = useState<number>(3.6);
   const [jitterMs, setJitterMs] = useState<number>(0.2);
+  const [showWslModal, setShowWslModal] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -57,14 +59,26 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
           </div>
         </div>
 
-        <button
-          className="btn-tactical-stop"
-          style={{ padding: '8px 16px', fontSize: '0.74rem' }}
-          onClick={onTriggerScan}
-        >
-          <i className="bi bi-arrow-repeat"></i>
-          <span>SONDEO INMEDIATO</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="btn-tactical-stop"
+            style={{ padding: '8px 16px', fontSize: '0.74rem', backgroundColor: '#0284c7', borderColor: '#38bdf8', color: '#ffffff', boxShadow: '0 0 10px rgba(6, 182, 212, 0.4)' }}
+            onClick={() => setShowWslModal(true)}
+            title="Abrir asistente de configuración de Modo Monitor Promiscuo con WSL2 y Scapy"
+          >
+            <i className="bi bi-ubuntu"></i>
+            <span>MODO MONITOR (WSL2)</span>
+          </button>
+
+          <button
+            className="btn-tactical-stop"
+            style={{ padding: '8px 16px', fontSize: '0.74rem' }}
+            onClick={onTriggerScan}
+          >
+            <i className="bi bi-arrow-repeat"></i>
+            <span>SONDEO INMEDIATO</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. KPIs Row */}
@@ -104,6 +118,70 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
           </span>
           <span className="sdr-kpi-sub">Recepción directa en memoria</span>
         </div>
+      </div>
+
+      {/* 2.5 Banner Extensión WSL2 Modo Monitor */}
+      <div
+        style={{
+          backgroundColor: 'var(--color1)',
+          border: '1px solid rgba(56, 189, 248, 0.35)',
+          borderRadius: '8px',
+          padding: '14px 18px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          background: 'linear-gradient(90deg, rgba(2, 132, 199, 0.12), rgba(88, 51, 131, 0.2))',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <i className="bi bi-shield-lock-fill" style={{ fontSize: '1.5rem', color: '#38bdf8' }}></i>
+          <div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--color6)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>Extensión de Modo Monitor Promiscuo (WSL2 + Scapy)</span>
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                  color: '#38bdf8',
+                  border: '1px solid #38bdf8',
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                ESTILO DOCKER DESKTOP
+              </span>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Captura Data Frames, RTS/CTS y tramas de clientes redirigiendo tu antena Wi-Fi USB al kernel Linux sin salir de Windows.
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowWslModal(true)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            backgroundColor: '#0284c7',
+            border: '1px solid #38bdf8',
+            borderRadius: '6px',
+            color: '#ffffff',
+            fontSize: '0.74rem',
+            fontWeight: 800,
+            cursor: 'pointer',
+            boxShadow: '0 0 10px rgba(6, 182, 212, 0.4)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <i className="bi bi-sliders"></i>
+          <span>CONFIGURAR EXTENSIÓN WSL2</span>
+        </button>
       </div>
 
       {/* 3. Split: Hardware Interfaces Details & Live Frames Monitor */}
@@ -231,6 +309,8 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
           </div>
         </div>
       </div>
+
+      <WslMonitorModal isOpen={showWslModal} onClose={() => setShowWslModal(false)} />
     </div>
   );
 };

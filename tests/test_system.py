@@ -120,6 +120,15 @@ def run_tests():
     assert "after_formatted" in vac_res, "Vacuum should return formatted size"
     print(f" [OK] Sesión eliminada correctamente y VACUUM ejecutado ({vac_res['after_formatted']}).")
 
+    print("\n [TEST 11] Validando Extensión WSL2 y Gestor de Modo Monitor...")
+    from app.core.wsl_manager import WSLManager
+    wsl_st = WSLManager.get_full_status()
+    assert "wsl_installed" in wsl_st, "WSL status must contain wsl_installed"
+    assert "usb_wifi_adapters" in wsl_st, "WSL status must contain usb_wifi_adapters"
+    script_path = WSLManager.generate_installer_batch_script()
+    assert os.path.exists(script_path), "Installer batch script must be generated"
+    print(f" [OK] Estado WSL2 diagnosticado y script de instalación generado en: {script_path}")
+
     DatabaseManager.end_session(session_id)
     print("\n" + "=" * 60)
     print(" [*] ¡TODOS LOS TESTS COMPLETADOS SATISFACTORIAMENTE! [*]")
