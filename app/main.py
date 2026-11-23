@@ -599,7 +599,17 @@ async def compare_sessions_endpoint(id1: int, id2: int):
     """Calculate real differential RF metrics between two historical sessions."""
     res = DatabaseManager.compare_sessions(id1, id2)
     if "error" in res:
-        raise HTTPException(status_code=404, detail=res["error"])
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": res["error"],
+                "detail": res["error"],
+                "session_1": None,
+                "session_2": None,
+                "deltas": [],
+                "summary": res["error"]
+            }
+        )
     return res
 
 @app.get("/api/sessions/compare/csv")

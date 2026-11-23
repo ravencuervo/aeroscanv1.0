@@ -51,13 +51,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           if (mapped.length >= 2) {
             setSelectedSessions([mapped[0].id, mapped[1].id]);
             fetch(`/api/sessions/compare?id1=${mapped[0].rawId}&id2=${mapped[1].rawId}`)
-              .then((r) => r.json())
+              .then((r) => (r.ok ? r.json() : null))
               .then((comp) => {
-                if (comp && !comp.error) setComparisonData(comp);
+                if (comp && comp.session_1 && comp.session_2) {
+                  setComparisonData(comp);
+                } else {
+                  setComparisonData(null);
+                }
               })
-              .catch(() => {});
+              .catch(() => setComparisonData(null));
           } else if (mapped.length > 0) {
             setSelectedSessions([mapped[0].id]);
+            setComparisonData(null);
           }
         }
       })
@@ -94,11 +99,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           if (remap.length >= 2) {
             setSelectedSessions([remap[0].id, remap[1].id]);
             fetch(`/api/sessions/compare?id1=${remap[0].rawId}&id2=${remap[1].rawId}`)
-              .then((r) => r.json())
+              .then((r) => (r.ok ? r.json() : null))
               .then((comp) => {
-                if (comp && !comp.error) setComparisonData(comp);
+                if (comp && comp.session_1 && comp.session_2) {
+                  setComparisonData(comp);
+                } else {
+                  setComparisonData(null);
+                }
               })
-              .catch(() => {});
+              .catch(() => setComparisonData(null));
           } else {
             setSelectedSessions(remap.length > 0 ? [remap[0].id] : []);
             setComparisonData(null);
@@ -197,13 +206,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
       const res = await fetch(`/api/sessions/compare?id1=${id1}&id2=${id2}`);
       if (res.ok) {
         const data = await res.json();
-        setComparisonData(data);
-        setCompareMessage(data.summary || `Comparativa diferencial calculada entre #${id1} y #${id2}.`);
+        if (data && data.session_1 && data.session_2) {
+          setComparisonData(data);
+          setCompareMessage(data.summary || `Comparativa diferencial calculada entre #${id1} y #${id2}.`);
+        } else {
+          setComparisonData(null);
+          setCompareMessage(data?.detail || data?.error || 'No se pudieron contrastar estas sesiones.');
+        }
       } else {
-        setCompareMessage('No se pudieron obtener datos para contrastar estas sesiones.');
+        const err = await res.json().catch(() => null);
+        setComparisonData(null);
+        setCompareMessage(err?.detail || err?.error || 'No se pudieron contrastar las sesiones seleccionadas.');
       }
     } catch (err) {
       console.error('Error fetching comparison:', err);
+      setComparisonData(null);
       setCompareMessage('Error de red al consultar la comparativa.');
     } finally {
       setIsComparing(false);
@@ -373,7 +390,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           padLeft + plotW / 2,
           padTop + plotH / 2
         );
-      } else if (comp && deltas.length > 0) {
+      } else if (comp && comp.session_1 && deltas.length > 0) {
         deltas.forEach((d: any) => {
           let cxRatio = 0.5;
           if (currentBand === '5ghz') {
@@ -607,7 +624,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           <div className="delta-card-header">
             <span className="delta-title">RESUMEN DELTA (A vs B)</span>
             <span className="delta-status-badge">
-              {comparisonData ? 'TELEMETRÍA REAL' : 'MODO COMPARATIVO'}
+              {comparisonData?.session_1 ? 'TELEMETRÍA REAL' : 'MODO COMPARATIVO'}
             </span>
           </div>
 
@@ -617,16 +634,20 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               <div className="d-metric-top">
                 <span className="d-lbl">AUDITORÍAS COMPARADAS</span>
                 <span className="d-gain" style={{ color: '#38bdf8' }}>
-                  {comparisonData ? `#SES-${comparisonData.session_1.id} ➔ #SES-${comparisonData.session_2.id}` : 'Seleccionar 2 Sesiones'}
+                  {comparisonData?.session_1?.id && comparisonData?.session_2?.id
+                    ? `#SES-${comparisonData.session_1.id} ➔ #SES-${comparisonData.session_2.id}`
+                    : selectedSessions.length >= 2
+                    ? `${selectedSessions[0]} ➔ ${selectedSessions[1]}`
+                    : 'Seleccionar 2 Sesiones'}
                 </span>
               </div>
               <div className="d-val-row">
-                <span className="d-prev">{comparisonData?.session_1?.name || 'Sesión A'}</span>
+                <span className="d-prev">{comparisonData?.session_1?.name || (selectedSessions[0] ? `Sesión ${selectedSessions[0]}` : 'Sesión A')}</span>
                 <i className="bi bi-arrow-right"></i>
-                <span className="d-cur">{comparisonData?.session_2?.name || 'Sesión B'}</span>
+                <span className="d-cur">{comparisonData?.session_2?.name || (selectedSessions[1] ? `Sesión ${selectedSessions[1]}` : 'Sesión B')}</span>
               </div>
               <div className="d-bar-track">
-                <div className="d-bar-fill" style={{ width: comparisonData ? '100%' : '50%' }}></div>
+                <div className="d-bar-fill" style={{ width: comparisonData?.session_1 ? '100%' : '50%' }}></div>
               </div>
             </div>
 
@@ -635,12 +656,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               <div className="d-metric-top">
                 <span className="d-lbl">MAYOR VARIACIÓN (CANAL {comparisonData?.max_delta_channel || 6})</span>
                 <span className="d-gain" style={{ color: (comparisonData?.max_delta_rssi || 0) <= 0 ? '#34d399' : '#f87171' }}>
-                  {comparisonData ? `${comparisonData.max_delta_rssi > 0 ? '+' : ''}${comparisonData.max_delta_rssi} dBm` : '-14 dBm'}
+                  {comparisonData ? `${(comparisonData.max_delta_rssi || 0) > 0 ? '+' : ''}${comparisonData.max_delta_rssi || 0} dBm` : '-14 dBm'}
                 </span>
               </div>
               <p className="d-desc">
                 {comparisonData
-                  ? `Canal ${comparisonData.max_delta_channel}: variación de potencia registrada entre las dos capturas de espectro.`
+                  ? `Canal ${comparisonData.max_delta_channel || 6}: variación de potencia registrada entre las dos capturas de espectro.`
                   : 'Diferencial de potencia co-canal calculado automáticamente desde SQLite.'}
               </p>
               <span className="d-sub-info">
@@ -653,7 +674,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               <div className="d-metric-top">
                 <span className="d-lbl">CANALES ANALIZADOS</span>
                 <span className="d-gain" style={{ color: '#38bdf8' }}>
-                  {comparisonData ? `${comparisonData.deltas?.length || 0} Canales` : '2.4G & 5G'}
+                  {comparisonData?.deltas ? `${comparisonData.deltas.length} Canales` : '2.4G & 5G'}
                 </span>
               </div>
               <div className="d-val-row">
@@ -669,7 +690,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               <div className="d-metric-top">
                 <span className="d-lbl">ESTADO DE MITIGACIÓN</span>
                 <span className="d-gain" style={{ color: '#34d399' }}>
-                  {comparisonData ? 'Cálculo Matemático OK' : 'Listo'}
+                  {comparisonData?.session_1 ? 'Cálculo Matemático OK' : 'Listo'}
                 </span>
               </div>
               <p className="d-desc" style={{ fontSize: '0.72rem', color: 'var(--color6)' }}>
