@@ -236,6 +236,26 @@ class DatabaseManager:
         }
 
     @staticmethod
+    def purge_simulated_sessions() -> int:
+        """Permanently delete all sessions created under 'simulation' or test mode with their samples."""
+        conn = get_db_connection()
+        try:
+            with conn:
+                cursor = conn.execute("SELECT id FROM sessions WHERE engine_type = 'simulation' OR name LIKE '%Prueba%' OR name LIKE '%Post-Mitigación%'")
+                rows = cursor.fetchall()
+                ids = [r[0] for r in rows]
+                if not ids:
+                    return 0
+                placeholders = ",".join("?" for _ in ids)
+                conn.execute(f"DELETE FROM samples WHERE session_id IN ({placeholders})", ids)
+                conn.execute(f"DELETE FROM channel_snapshots WHERE session_id IN ({placeholders})", ids)
+                conn.execute(f"DELETE FROM diagnostic_reports WHERE session_id IN ({placeholders})", ids)
+                conn.execute(f"DELETE FROM sessions WHERE id IN ({placeholders})", ids)
+                return len(ids)
+        finally:
+            conn.close()
+
+    @staticmethod
     def record_samples(session_id: int, ap_list: List[Dict[str, Any]]) -> None:
         if not ap_list:
             return

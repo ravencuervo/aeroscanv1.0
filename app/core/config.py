@@ -21,6 +21,12 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 # Database
 DB_PATH = DATA_DIR / "aeroscan.db"
 
+# Application version and metadata
+APP_VERSION = "1.0.0"
+APP_BUILD = "2026.11"
+APP_NAME = "AeroScan"
+APP_ORGANIZATION = "Facultad de Ingeniería Estadística e Informática — UNA Puno"
+
 # Server configuration
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 8765

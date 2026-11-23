@@ -165,7 +165,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       <div className="rep-header-actions-bar">
         <div className="rep-header-left">
           <i className="bi bi-file-earmark-bar-graph-fill" style={{ color: 'inherit' }}></i>
-          <span>Informe Técnico de Ingeniería RF — Telemetría de Hardware Directa</span>
+          <span>Informe Técnico de Ingeniería RF — AeroScan v1.0.0 (UNA Puno)</span>
         </div>
 
         <div className="rep-header-btns">
@@ -185,7 +185,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       <div className="rep-certificate-card">
         <div className="cert-top-row">
           <div>
-            <div className="cert-sub-badge">AUDITORÍA DE ESPECTRO RF EN VIVO</div>
+            <div className="cert-sub-badge">AEROSCAN v1.0.0 • AUDITORÍA DE ESPECTRO RF EN VIVO</div>
             <h2 className="cert-main-title">Auditoría Radioeléctrica y Métricas de Interferencia</h2>
             <p className="cert-desc">
               Inspección de radiofrecuencia sobre las bandas de 2.4 GHz y 5 GHz capturada por transceptores físicos

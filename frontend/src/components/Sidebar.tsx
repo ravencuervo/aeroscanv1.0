@@ -40,8 +40,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
             </div>
             <div>
-              <div className="sidebar-title-h1">AeroScan</div>
-              <div className="sidebar-title-sub">WiFi Spectrum Analytics</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="sidebar-title-h1">AeroScan</div>
+                <span
+                  style={{
+                    fontSize: '0.6rem',
+                    fontFamily: 'var(--font-mono)',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                    border: '1px solid #38bdf8',
+                    color: '#7dd3fc',
+                    fontWeight: 700,
+                  }}
+                >
+                  v1.0.0
+                </span>
+              </div>
+              <div className="sidebar-title-sub">WiFi Spectrum Analytics • UNA Puno</div>
             </div>
           </div>
 

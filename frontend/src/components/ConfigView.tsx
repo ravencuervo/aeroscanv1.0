@@ -443,6 +443,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Versión del Software:</span>
+                <span style={{ color: '#38bdf8', fontWeight: 700 }}>AeroScan v{systemInfo?.app_version || '1.0.0'} (Build {systemInfo?.app_build || '2026.11'})</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Institución / Facultad:</span>
+                <span style={{ color: 'var(--color6)' }}>{systemInfo?.app_organization || 'FIEI — UNA Puno'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Sistema Operativo:</span>
                 <span style={{ color: 'var(--color6)' }}>{systemInfo?.platform || 'Windows Native'}</span>
               </div>

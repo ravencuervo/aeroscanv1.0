@@ -126,6 +126,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <span>60 FPS FFT</span>
         </div>
 
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '4px 8px',
+            backgroundColor: 'rgba(56, 189, 248, 0.12)',
+            border: '1px solid rgba(56, 189, 248, 0.35)',
+            borderRadius: '6px',
+            color: '#7dd3fc',
+            fontSize: '0.68rem',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+          }}
+          title="AeroScan Versión 1.0.0 — Facultad de Ingeniería Estadística e Informática (UNA Puno)"
+        >
+          <i className="bi bi-patch-check-fill" style={{ color: '#38bdf8' }}></i>
+          <span>v1.0.0</span>
+        </div>
+
         {onOpenNewSession && (
           <button
             className="header-audit-btn"

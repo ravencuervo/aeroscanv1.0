@@ -89,8 +89,24 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
               />
             </div>
             <div className="login-titles">
-              <h2>AeroScan</h2>
-              <p>Auditoría Espectral</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2>AeroScan</h2>
+                <span
+                  style={{
+                    fontSize: '0.62rem',
+                    fontFamily: 'var(--font-mono)',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                    border: '1px solid #38bdf8',
+                    color: '#7dd3fc',
+                    fontWeight: 800,
+                  }}
+                >
+                  v1.0.0
+                </span>
+              </div>
+              <p>Auditoría Espectral • FIEI UNA Puno</p>
             </div>
           </div>
 

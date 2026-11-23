@@ -15,7 +15,10 @@ from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.core.config import SERVER_HOST, SERVER_PORT, REPORTS_DIR, BASE_DIR, DATA_DIR, DB_PATH, REGISTRATION_URL
+from app.core.config import (
+    SERVER_HOST, SERVER_PORT, REPORTS_DIR, BASE_DIR, DATA_DIR, DB_PATH, REGISTRATION_URL,
+    APP_VERSION, APP_BUILD, APP_NAME, APP_ORGANIZATION
+)
 from app.core.database import init_database, DatabaseManager
 from app.core.wsl_manager import WSLManager
 from app.capture.hal import ScannedAP, BaseCaptureEngine, channel_to_frequency, rssi_to_quality, lookup_vendor
@@ -567,6 +570,10 @@ async def get_system_info():
 
     adapters = [a.to_dict() for a in state.engine.get_adapters()] if (state.engine and hasattr(state.engine, "get_adapters")) else []
     return {
+        "app_version": APP_VERSION,
+        "app_build": APP_BUILD,
+        "app_name": APP_NAME,
+        "app_organization": APP_ORGANIZATION,
         "platform": platform.platform(),
         "python_version": platform.python_version(),
         "system": platform.system(),
@@ -698,6 +705,12 @@ async def delete_session(session_id: int):
         state.current_session_id = None
         state.session_start_time = None
     return {"status": "deleted", "session_id": session_id}
+
+@app.post("/api/sessions/purge-simulated")
+async def purge_simulated_sessions():
+    """Purge old dummy/simulation test sessions to leave only genuine physical capture data."""
+    purged_count = DatabaseManager.purge_simulated_sessions()
+    return {"status": "purged", "deleted_sessions": purged_count}
 
 @app.post("/api/system/db/vacuum")
 async def vacuum_database_endpoint():

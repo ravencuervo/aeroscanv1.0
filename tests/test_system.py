@@ -129,7 +129,13 @@ def run_tests():
     assert os.path.exists(script_path), "Installer batch script must be generated"
     print(f" [OK] Estado WSL2 diagnosticado y script de instalación generado en: {script_path}")
 
-    DatabaseManager.end_session(session_id)
+    # Clean up test sessions to keep user database 100% genuine
+    DatabaseManager.delete_session(session_id)
+    DatabaseManager.delete_session(session_id_2)
+    DatabaseManager.purge_simulated_sessions()
+    DatabaseManager.vacuum_database()
+    print(" [OK] Limpieza de sesiones de prueba completada: base de datos 100% limpia.")
+
     print("\n" + "=" * 60)
     print(" [*] ¡TODOS LOS TESTS COMPLETADOS SATISFACTORIAMENTE! [*]")
     print("=" * 60)

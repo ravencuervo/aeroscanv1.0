@@ -37,17 +37,25 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             rawId: s.id,
             id: `#SES-${s.id}`,
             name: s.name,
-            location: s.location,
+            location: s.location || 'Entorno Local',
             date: s.start_time ? new Date(s.start_time).toLocaleString('es-ES') : (s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : 'En curso'),
             channels: '2.4 GHz & 5 GHz',
-            occupancy: s.engine_type === 'windows' ? 'Hardware Real' : 'WLAN',
-            collisions: `${s.sample_count || s.samples_count || 0} muestras`,
+            engineType: s.engine_type || 'windows',
+            engineLabel: s.engine_type === 'windows' ? 'Hardware Real (Windows WLAN)' : (s.engine_type === 'scapy' ? 'Modo Monitor (WSL2 Scapy)' : 'Simulación'),
+            samplesCount: s.sample_count || s.samples_count || 0,
+            uniqueAps: s.unique_aps || 0,
             status: s.status === 'completed' ? 'FINALIZADA' : 'ACTIVA',
             color: s.status === 'completed' ? '#10b981' : '#38bdf8',
           }));
           setRealSessions(mapped);
           if (mapped.length >= 2) {
             setSelectedSessions([mapped[0].id, mapped[1].id]);
+            fetch(`/api/sessions/compare?id1=${mapped[0].rawId}&id2=${mapped[1].rawId}`)
+              .then((r) => r.json())
+              .then((comp) => {
+                if (comp && !comp.error) setComparisonData(comp);
+              })
+              .catch(() => {});
           } else if (mapped.length > 0) {
             setSelectedSessions([mapped[0].id]);
           }
@@ -55,6 +63,52 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
       })
       .catch((err) => console.warn('Error fetching real sessions:', err));
   }, []);
+
+  const handlePurgeSimulated = async () => {
+    if (!window.confirm('¿Deseas purgar permanentemente todas las sesiones antiguas de prueba o simulación? Solo se conservarán las auditorías reales capturadas con hardware.')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/sessions/purge-simulated', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setCompareMessage(`Limpieza completada: ${data.deleted_sessions} auditorías de prueba purgadas.`);
+        const sRes = await fetch('/api/sessions');
+        const sData = await sRes.json();
+        if (Array.isArray(sData)) {
+          const remap = sData.map((s: any) => ({
+            rawId: s.id,
+            id: `#SES-${s.id}`,
+            name: s.name,
+            location: s.location || 'Entorno Local',
+            date: s.start_time ? new Date(s.start_time).toLocaleString('es-ES') : (s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : 'En curso'),
+            channels: '2.4 GHz & 5 GHz',
+            engineType: s.engine_type || 'windows',
+            engineLabel: s.engine_type === 'windows' ? 'Hardware Real (Windows WLAN)' : (s.engine_type === 'scapy' ? 'Modo Monitor (WSL2 Scapy)' : 'Simulación'),
+            samplesCount: s.sample_count || s.samples_count || 0,
+            uniqueAps: s.unique_aps || 0,
+            status: s.status === 'completed' ? 'FINALIZADA' : 'ACTIVA',
+            color: s.status === 'completed' ? '#10b981' : '#38bdf8',
+          }));
+          setRealSessions(remap);
+          if (remap.length >= 2) {
+            setSelectedSessions([remap[0].id, remap[1].id]);
+            fetch(`/api/sessions/compare?id1=${remap[0].rawId}&id2=${remap[1].rawId}`)
+              .then((r) => r.json())
+              .then((comp) => {
+                if (comp && !comp.error) setComparisonData(comp);
+              })
+              .catch(() => {});
+          } else {
+            setSelectedSessions(remap.length > 0 ? [remap[0].id] : []);
+            setComparisonData(null);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error purging simulated sessions:', err);
+    }
+  };
 
   const handleOpenDetail = async (ses: any) => {
     setDetailSession(ses);
@@ -374,16 +428,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           ctx.fillText(`Variación espectral entre sesiones`, mx, my - 10 * dpr);
         }
       } else {
-        // Baseline curve representation
-        drawComparativeCurve(0.18, 0.22, -62, '#865db1', 'rgba(134, 93, 177, 0.25)');
-        drawComparativeCurve(0.50, 0.26, -42, '#865db1', 'rgba(134, 93, 177, 0.35)');
-        drawComparativeCurve(0.82, 0.22, -58, '#865db1', 'rgba(134, 93, 177, 0.25)');
-
-        // Prompt message
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = `bold ${8 * dpr}px 'JetBrains Mono', monospace`;
+        // Clean prompt without fake curves
+        ctx.fillStyle = '#9c80bd';
+        ctx.font = `${8.5 * dpr}px 'JetBrains Mono', monospace`;
         ctx.textAlign = 'center';
-        ctx.fillText('SELECCIONA 2 AUDITORÍAS EN LA TABLA Y PULSA "COMPARAR" PARA CALCULAR EL DELTA REAL', padLeft + plotW / 2, padTop + 24 * dpr);
+        ctx.fillText(
+          'SELECCIONA 2 AUDITORÍAS EN LA TABLA Y PULSA "COMPARAR" PARA CONTRASTAR EL ESPECTRO REAL',
+          padLeft + plotW / 2,
+          padTop + plotH / 2
+        );
       }
 
       // Channel Frequency ticks
@@ -635,6 +688,27 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <span>Registro de Sesiones Almacenadas en Disco</span>
           </div>
           <div className="hist-table-actions">
+            <button
+              onClick={handlePurgeSimulated}
+              className="btn-ses-view"
+              style={{
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                borderColor: '#f59e0b',
+                color: '#fcd34d',
+                padding: '4px 10px',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer',
+              }}
+              title="Purgar sesiones antiguas de simulación o pruebas automatizadas y conservar únicamente auditorías reales"
+            >
+              <i className="bi bi-shield-x"></i>
+              <span>Purgar Auditorías de Simulación</span>
+            </button>
+
             <div className="hist-search-box">
               <i className="bi bi-search"></i>
               <input
@@ -656,8 +730,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                 <th>ID SESIÓN</th>
                 <th>NOMBRE AUDITORÍA</th>
                 <th>UBICACIÓN</th>
+                <th>MOTOR / HARDWARE</th>
+                <th>MUESTRAS</th>
+                <th>BSSIDs</th>
                 <th>FECHA Y HORA</th>
-                <th>MUESTRAS REGISTRADAS</th>
                 <th>ESTADO</th>
                 <th>ACCIONES</th>
               </tr>
@@ -665,7 +741,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <tbody>
               {sessionsData.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                     No se encontraron auditorías registradas en SQLite. Utiliza el botón "+ Nueva Auditoría" para iniciar una.
                   </td>
                 </tr>
@@ -684,8 +760,30 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                       <td className="cell-ses-id">{ses.id}</td>
                       <td className="cell-ses-id" style={{ color: 'var(--color6)', fontWeight: 700 }}>{ses.name}</td>
                       <td className="cell-ses-chan">{ses.location || 'Sitio'}</td>
+                      <td>
+                        <span
+                          style={{
+                            fontSize: '0.63rem',
+                            fontFamily: 'var(--font-mono)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: ses.engineType === 'windows' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                            border: `1px solid ${ses.engineType === 'windows' ? '#10b981' : '#38bdf8'}`,
+                            color: ses.engineType === 'windows' ? '#34d399' : '#7dd3fc',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {ses.engineLabel}
+                        </span>
+                      </td>
+                      <td className="cell-ses-col cell-mono" style={{ color: '#38bdf8', fontWeight: 600 }}>
+                        {ses.samplesCount.toLocaleString()} tramas
+                      </td>
+                      <td className="cell-ses-col cell-mono" style={{ color: 'var(--color6)' }}>
+                        {ses.uniqueAps} APs
+                      </td>
                       <td className="cell-ses-date">{ses.date}</td>
-                      <td className="cell-ses-col">{ses.collisions}</td>
                       <td>
                         <span
                           className="badge-ses-status"
