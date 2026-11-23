@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ScannedAP } from '../types/spectrum';
 import './ChannelSweepStrip.css';
 
@@ -30,6 +30,8 @@ const CHANNELS_CONFIG: ChannelDef[] = [
 ];
 
 export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoints, isCapturing = true }) => {
+  const [selectedCh, setSelectedCh] = useState<number | null>(null);
+
   const getChannelColor = (status: 'clear' | 'moderate' | 'high') => {
     switch (status) {
       case 'clear':
@@ -40,6 +42,8 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
         return '#ef4444'; // Red
     }
   };
+
+  const selectedAps = selectedCh !== null ? accessPoints.filter((a) => a.channel === selectedCh) : [];
 
   return (
     <div className="channel-sweep-panel">
@@ -61,7 +65,7 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
           }}
         >
           <span>
-            {isCapturing ? 'BARRIDO ACTIVO: CH 36 → CH 165' : 'BARRIDO EN ESPERA (DETENIDO)'}
+            {isCapturing ? 'BARRIDO ACTIVO: 2.4 GHz (CH 1-13) & 5 GHz (CH 36-165)' : 'BARRIDO EN ESPERA (DETENIDO)'}
           </span>
         </div>
 
@@ -102,7 +106,8 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
           const strongestAp = accessPoints.length > 0
             ? accessPoints.reduce((prev, curr) => (curr.rssi > prev.rssi ? curr : prev), accessPoints[0])
             : null;
-          const isActive = strongestAp ? strongestAp.channel === item.ch : false;
+          const isStrongest = strongestAp ? strongestAp.channel === item.ch : false;
+          const isSelected = selectedCh === item.ch;
 
           let status: 'clear' | 'moderate' | 'high' = 'clear';
           if (apCount >= 4) status = 'high';
@@ -112,9 +117,16 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
           return (
             <div
               key={item.ch}
-              className={`channel-cell ${isActive ? 'active-channel' : ''}`}
+              className={`channel-cell ${isStrongest ? 'active-channel' : ''}`}
+              style={{
+                cursor: 'pointer',
+                outline: isSelected ? '2px solid #38bdf8' : 'none',
+                backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.12)' : undefined,
+              }}
+              onClick={() => setSelectedCh(isSelected ? null : item.ch)}
+              title={`Haz clic para ver los ${apCount} APs detectados en Canal ${item.ch}`}
             >
-              {isActive && <span className="actual-pill-tag">MÁS POTENTE</span>}
+              {isStrongest && <span className="actual-pill-tag">MÁS POTENTE</span>}
 
               <div className="channel-cell-top">
                 <span className="cell-ch-num">CH {item.ch}</span>
@@ -142,6 +154,63 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
           );
         })}
       </div>
+
+      {/* Selected Channel AP Details Popover */}
+      {selectedCh !== null && (
+        <div
+          style={{
+            marginTop: '10px',
+            backgroundColor: 'var(--color1)',
+            border: '1px solid #38bdf8',
+            borderRadius: '6px',
+            padding: '10px 14px',
+            fontSize: '0.74rem',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontWeight: 700, color: '#38bdf8' }}>
+              <i className="bi bi-broadcast" style={{ marginRight: '6px' }}></i>
+              Canal Ch {selectedCh} — {selectedAps.length} {selectedAps.length === 1 ? 'Red Detectada' : 'Redes Detectadas en este canal'}
+            </span>
+            <button
+              onClick={() => setSelectedCh(null)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem' }}
+            >
+              ✕ Cerrar
+            </button>
+          </div>
+          {selectedAps.length === 0 ? (
+            <span style={{ color: 'var(--text-muted)' }}>Canal libre. No hay puntos de acceso transmitiendo en esta frecuencia.</span>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {selectedAps.map((ap) => (
+                <div
+                  key={ap.bssid}
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(88, 51, 131, 0.4)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                  }}
+                >
+                  <strong style={{ color: '#fff' }}>{ap.ssid || '<Oculta>'}</strong>
+                  <span style={{ color: '#9c80bd', fontFamily: 'monospace', fontSize: '0.68rem' }}>{ap.bssid}</span>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                    <span style={{ color: ap.rssi >= -65 ? '#10b981' : ap.rssi >= -80 ? '#f59e0b' : '#ef4444', fontWeight: 700 }}>
+                      {ap.rssi} dBm
+                    </span>
+                    <span style={{ color: 'var(--text-dim)' }}>{ap.security}</span>
+                    <span style={{ color: '#38bdf8' }}>{ap.vendor}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

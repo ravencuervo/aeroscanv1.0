@@ -83,6 +83,43 @@ def run_tests():
     assert excel_path.exists(), "Excel report was not generated!"
     print(f" [OK] Reporte Excel creado exitosamente ({excel_path.stat().st_size} bytes): {excel_path.name}")
 
+    print("\n [TEST 8] Probando Análisis Diferencial de Sesiones (SQLite & Diff Engine)...")
+    session_id_2 = DatabaseManager.create_session(
+        name="Segunda Auditoría Post-Mitigación",
+        location="Lab UNA Puno - Piso 2",
+        engine_type="simulation",
+        notes="Verificación comparativa"
+    )
+    samples_2 = [dict(s) for s in raw_samples]
+    if samples_2:
+        samples_2[0]["rssi"] = -45
+    DatabaseManager.record_samples(session_id_2, samples_2)
+    diff = DatabaseManager.compare_sessions(session_id, session_id_2)
+    assert "deltas" in diff, "Diff result should contain deltas key"
+    assert "summary" in diff, "Diff result should contain summary key"
+    assert len(diff["deltas"]) > 0, "Deltas list should not be empty"
+    print(f" [OK] Comparativa generada: {diff['summary']}")
+    DatabaseManager.end_session(session_id_2)
+
+    print("\n [TEST 9] Validando Generador Binario PCAP (Wireshark LinkType 105)...")
+    from app.main import build_binary_pcap
+    pcap_data = build_binary_pcap(raw_samples)
+    assert len(pcap_data) > 24, "PCAP data should be larger than 24-byte header"
+    assert pcap_data[:4] == b"\xd4\xc3\xb2\xa1", f"PCAP header magic mismatch: got {pcap_data[:4].hex()}"
+    print(f" [OK] Archivo PCAP estándar válido generado: {len(pcap_data)} bytes binarios.")
+
+    print("\n [TEST 10] Probando Eliminación de Sesión y Compactación SQLite (VACUUM)...")
+    temp_ses_id = DatabaseManager.create_session(name="Sesión Temporal para Purga", location="Test Lab")
+    DatabaseManager.record_samples(temp_ses_id, raw_samples[:2])
+    assert DatabaseManager.get_session(temp_ses_id) is not None
+    del_ok = DatabaseManager.delete_session(temp_ses_id)
+    assert del_ok, "Failed to delete temporary session"
+    assert DatabaseManager.get_session(temp_ses_id) is None, "Session should be purged from database"
+    vac_res = DatabaseManager.vacuum_database()
+    assert vac_res["status"] == "vacuumed", "Vacuum should return vacuumed status"
+    assert "after_formatted" in vac_res, "Vacuum should return formatted size"
+    print(f" [OK] Sesión eliminada correctamente y VACUUM ejecutado ({vac_res['after_formatted']}).")
+
     DatabaseManager.end_session(session_id)
     print("\n" + "=" * 60)
     print(" [*] ¡TODOS LOS TESTS COMPLETADOS SATISFACTORIAMENTE! [*]")

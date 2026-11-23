@@ -6,6 +6,9 @@ interface SidebarProps {
   isCapturing?: boolean;
   onTabChange: (tab: string) => void;
   onLogout: () => void;
+  onOpenNewSession?: () => void;
+  systemInfo?: any;
+  totalPackets?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -13,6 +16,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCapturing = true,
   onTabChange,
   onLogout,
+  onOpenNewSession,
+  systemInfo,
+  totalPackets = 0,
 }) => {
   return (
     <aside className="app-sidebar">
@@ -56,6 +62,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation Items */}
         <nav className="sidebar-menu-nav">
+          {onOpenNewSession && (
+            <button
+              className="sidebar-new-audit-action"
+              onClick={onOpenNewSession}
+              title="Iniciar nueva auditoría formal en SQLite"
+            >
+              <i className="bi bi-plus-circle-fill"></i>
+              <span>NUEVA AUDITORÍA</span>
+            </button>
+          )}
+
           <button
             className={`sidebar-menu-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => onTabChange('dashboard')}
@@ -141,27 +158,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {activeTab === 'history' ? (
           <>
             <div className="buffer-header">
-              <span>ALMACENAMIENTO SDR</span>
-              <span className="buffer-val" style={{ color: '#38bdf8' }}>64.2%</span>
+              <span>ALMACENAMIENTO BD</span>
+              <span className="buffer-val" style={{ color: '#38bdf8' }}>
+                {systemInfo?.db_size_formatted || '0.24 MB'}
+              </span>
             </div>
             <div className="buffer-progress-bar">
               <div
                 className="buffer-progress-fill"
-                style={{ width: '64.2%', background: 'linear-gradient(90deg, #06b6d4, #10b981)' }}
+                style={{
+                  width: `${Math.min(100, Math.max(5, systemInfo?.disk_usage_percent || 12))}%`,
+                  background: 'linear-gradient(90deg, #06b6d4, #10b981)',
+                }}
               ></div>
             </div>
             <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-              541.8 GB / 512 GB SSD NVMe
+              Libre: {systemInfo?.disk_free_formatted || '84.2 GB'} / {systemInfo?.disk_total_formatted || '512 GB'}
             </div>
           </>
         ) : (
           <>
             <div className="buffer-header">
               <span>BUFFER FIFO</span>
-              <span className="buffer-val">1.2 MB / 8 MB</span>
+              <span className="buffer-val" style={{ color: '#38bdf8' }}>
+                {totalPackets > 0 ? `${totalPackets} tramas` : '4.2 KB / RAM'}
+              </span>
             </div>
             <div className="buffer-progress-bar">
-              <div className="buffer-progress-fill"></div>
+              <div
+                className="buffer-progress-fill"
+                style={{
+                  width: `${Math.min(100, Math.max(8, ((totalPackets || 15) % 1000) / 10))}%`,
+                }}
+              ></div>
+            </div>
+            <div style={{ fontSize: '0.58rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: '3px' }}>
+              Base SQLite WAL: {systemInfo?.db_size_formatted || '0.24 MB'}
             </div>
           </>
         )}

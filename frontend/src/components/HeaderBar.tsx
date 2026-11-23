@@ -10,6 +10,7 @@ interface HeaderBarProps {
   activeTab?: string;
   onLogout: () => void;
   onNavigate?: (tab: string) => void;
+  onOpenNewSession?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -20,6 +21,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   activeTab = 'live',
   onLogout,
   onNavigate,
+  onOpenNewSession,
 }) => {
   const [showNotifications, setShowNotifications] = React.useState(false);
 
@@ -123,6 +125,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         <div className="header-fft-badge">
           <span>60 FPS FFT</span>
         </div>
+
+        {onOpenNewSession && (
+          <button
+            className="header-audit-btn"
+            onClick={onOpenNewSession}
+            title="Iniciar nueva auditoría formal en SQLite"
+          >
+            <i className="bi bi-plus-circle-fill"></i>
+            <span>Nueva Auditoría</span>
+          </button>
+        )}
 
         <button
           className="header-icon-btn"

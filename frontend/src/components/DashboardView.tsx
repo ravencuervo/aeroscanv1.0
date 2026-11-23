@@ -6,12 +6,14 @@ interface DashboardViewProps {
   accessPoints: ScannedAP[];
   metrics: SpectrumMetrics | null;
   recommendations: SpectrumRecommendations | null;
+  onNavigate?: (tab: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   accessPoints,
   metrics,
   recommendations,
+  onNavigate,
 }) => {
   const [bandSelection, setBandSelection] = useState<'both' | '2.4ghz' | '5ghz'>('both');
   const [searchQuery, setSearchQuery] = useState('');
@@ -698,9 +700,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <p className="recom-desc">{rec.detail}</p>
                   <div className="recom-action-row">
                     <span className="recom-impact">{rec.action}</span>
-                    <span className="btn-recom-apply" style={{ pointerEvents: 'none' }}>
-                      CANAL {rec.target_channel} ({rec.band})
-                    </span>
+                    <button
+                      className="btn-recom-apply"
+                      onClick={() => onNavigate?.('channels')}
+                      style={{
+                        cursor: onNavigate ? 'pointer' : 'default',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        border: 'none',
+                      }}
+                      title="Explorar espectro y directivas en vista de canales"
+                    >
+                      CANAL {rec.target_channel} ({rec.band}) <i className="bi bi-arrow-right"></i>
+                    </button>
                   </div>
                 </div>
               ))

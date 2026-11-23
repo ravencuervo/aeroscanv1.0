@@ -8,9 +8,10 @@ class SpectrumOptimizer:
     """
 
     @staticmethod
-    def generate_recommendations(analysis: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_recommendations(analysis: Dict[str, Any], ap_list: Optional[List[Any]] = None) -> Dict[str, Any]:
         """
-        Analyze spectrum metrics, find optimal channels, and generate actionable technical recommendations.
+        Analyze spectrum metrics, find optimal channels, and generate actionable technical recommendations
+        including physical co-channel interference and Wi-Fi security/vulnerability audits.
         """
         c24 = analysis.get("channels_24ghz", {})
         c5 = analysis.get("channels_5ghz", {})
@@ -83,6 +84,73 @@ class SpectrumOptimizer:
                 "cci_score": 0,
                 "aci_score": max(c24[ch]["aci_score"] for ch, _ in overlapping_offenders)
             })
+
+        # --- AUDITORÍA DE SEGURIDAD Y VULNERABILIDADES RF (Sprint 4) ---
+        raw_aps = []
+        if ap_list:
+            raw_aps = [ap.to_dict() if hasattr(ap, "to_dict") else ap for ap in ap_list]
+        else:
+            for ch_data in c24.values():
+                raw_aps.extend(ch_data.get("aps", []))
+            for ch_data in c5.values():
+                raw_aps.extend(ch_data.get("aps", []))
+
+        # Check for open networks, deprecated ciphers and Rogue APs / Evil Twins
+        ssid_groups: Dict[str, List[Dict[str, Any]]] = {}
+        for ap in raw_aps:
+            ssid = str(ap.get("ssid", "")).strip()
+            sec = str(ap.get("security", "")).upper()
+            bssid = ap.get("bssid", "00:00:00:00:00:00")
+            vendor = ap.get("vendor", "Desconocido")
+            ch = ap.get("channel", 1)
+
+            # 1. Redes abiertas sin cifrado
+            if sec in ["OPEN", "NINGUNA", "NONE", "ABIERTA"] or ("OPEN" in sec and "WPA" not in sec):
+                if ssid and ssid != "<Oculta>":
+                    findings.append({
+                        "severity": "WARNING",
+                        "channel": ch,
+                        "band": ap.get("band", "2.4GHz"),
+                        "title": f"Red Abierta Sin Cifrado: '{ssid}'",
+                        "description": f"El Punto de Acceso {bssid} ({vendor}) opera sin cifrado criptográfico. El tráfico inalámbrico de los clientes es vulnerable a escucha pasiva (sniffing).",
+                        "cci_score": 0,
+                        "aci_score": 0
+                    })
+
+            # 2. Cifrado débil o deprecado (WEP o TKIP)
+            if "WEP" in sec or "TKIP" in sec:
+                findings.append({
+                    "severity": "CRITICAL",
+                    "channel": ch,
+                    "band": ap.get("band", "2.4GHz"),
+                    "title": f"Cifrado Inseguro y Deprecado ({sec}): '{ssid or bssid}'",
+                    "description": f"El AP {bssid} emplea mecanismos criptográficos obsoletos vulnerables a inyección de paquetes y descifrado de claves.",
+                    "cci_score": 0,
+                    "aci_score": 0
+                })
+
+            if ssid and ssid != "<Oculta>":
+                if ssid not in ssid_groups:
+                    ssid_groups[ssid] = []
+                ssid_groups[ssid].append(ap)
+
+        # 3. Detección de Rogue AP / Evil Twin
+        for ssid, aps in ssid_groups.items():
+            if len(aps) > 1:
+                vendors = set(a.get("vendor", "Desconocido") for a in aps if a.get("vendor", "Desconocido") not in ["Desconocido", "Fabricante Estándar"])
+                securities = set(str(a.get("security", "")).upper() for a in aps)
+                has_open = any("OPEN" in s or "NINGUNA" in s for s in securities)
+                has_secure = any("WPA" in s for s in securities)
+                if len(vendors) > 1 or (has_open and has_secure):
+                    findings.append({
+                        "severity": "CRITICAL",
+                        "channel": aps[0].get("channel", 1),
+                        "band": aps[0].get("band", "2.4GHz"),
+                        "title": f"Alerta de Posible AP Falso (Rogue / Evil Twin): '{ssid}'",
+                        "description": f"Se detectaron {len(aps)} transceptores transmitiendo el mismo SSID '{ssid}' con fabricantes discrepantes ({', '.join(vendors) or 'Múltiples'}) o políticas de cifrado mixtas. Riesgo de ataque Man-in-the-Middle.",
+                        "cci_score": 0,
+                        "aci_score": 0
+                    })
 
         # Generate actionable migration recommendations
         if best_ch_24:

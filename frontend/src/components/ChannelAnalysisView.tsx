@@ -12,13 +12,24 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
   const [scaleMode, setScaleMode] = useState<'dbm' | 'mw'>('dbm');
   const [appliedMessage, setAppliedMessage] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [showMitigationModal, setShowMitigationModal] = useState(false);
+  const [copiedCli, setCopiedCli] = useState(false);
+  const [routerType, setRouterType] = useState<'mikrotik' | 'cisco' | 'openwrt'>('mikrotik');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Filter APs by selected RF band
+  // Filter APs by selected RF band and channel width
   const bandAps = useMemo(() => {
-    return accessPoints.filter((ap) => (selectedBand === '2.4ghz' ? ap.channel <= 14 : ap.channel > 14));
-  }, [accessPoints, selectedBand]);
+    return accessPoints.filter((ap) => {
+      const matchBand = selectedBand === '2.4ghz' ? ap.channel <= 14 : ap.channel > 14;
+      if (!matchBand) return false;
+      if (channelWidth !== 'all') {
+        const width = ap.channel_width || 20;
+        if (width !== parseInt(channelWidth, 10)) return false;
+      }
+      return true;
+    });
+  }, [accessPoints, selectedBand, channelWidth]);
 
   // Group APs by channel
   const channelMap = useMemo(() => {
@@ -103,6 +114,8 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
   channelMapRef.current = channelMap;
   const selectedBandRef = useRef(selectedBand);
   selectedBandRef.current = selectedBand;
+  const scaleModeRef = useRef(scaleMode);
+  scaleModeRef.current = scaleMode;
 
   // Smoothing state for channel parabolas
   const smoothedChannelsRef = useRef<
@@ -180,10 +193,22 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
       ctx.fillStyle = '#290854';
       ctx.fillRect(0, 0, w, h);
 
-      // Horizontal dBm grid levels (-30, -50, -70, -85, -95)
+      // Horizontal dBm/mW grid levels (-30, -50, -70, -85, -95)
       const levels = [-30, -50, -70, -85, -95];
+      const isMw = scaleModeRef.current === 'mw';
+      const formatPwr = (valDbm: number) => {
+        if (isMw) {
+          const mw = Math.pow(10, valDbm / 10);
+          if (mw >= 1) return `${mw.toFixed(2)} mW`;
+          if (mw >= 0.001) return `${(mw * 1000).toFixed(2)} µW`;
+          if (mw >= 0.000001) return `${(mw * 1e6).toFixed(2)} nW`;
+          return `${(mw * 1e9).toFixed(2)} pW`;
+        }
+        return `${valDbm} dBm`;
+      };
+
       ctx.lineWidth = 1;
-      ctx.font = `${8 * dpr}px 'JetBrains Mono', monospace`;
+      ctx.font = `${7.5 * dpr}px 'JetBrains Mono', monospace`;
       ctx.textAlign = 'right';
 
       levels.forEach((lvl) => {
@@ -196,13 +221,14 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
         ctx.stroke();
 
         ctx.fillStyle = lvl === -85 ? '#fca5a5' : '#9c80bd';
-        ctx.fillText(`${lvl}`, padLeft - 8 * dpr, y + 3 * dpr);
+        ctx.fillText(formatPwr(lvl), padLeft - 6 * dpr, y + 3 * dpr);
       });
 
       // Noise floor text
       ctx.fillStyle = '#64748b';
       ctx.textAlign = 'right';
-      ctx.fillText('RUIDO DE PISO -95 dBm', w - padRight, padTop + plotH - 6 * dpr);
+      const noiseText = isMw ? 'RUIDO DE PISO ~0.3 pW (-95 dBm)' : 'RUIDO DE PISO -95 dBm';
+      ctx.fillText(noiseText, w - padRight, padTop + plotH - 6 * dpr);
 
       // Parabolic curve drawing helper
       const drawChannelBell = (
@@ -395,7 +421,8 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
         ctx.fillText(`● ${m.ssid}`, p1x - 64 * dpr, p1y - 34 * dpr);
         ctx.fillStyle = '#9c80bd';
         ctx.font = `${7 * dpr}px 'JetBrains Mono', monospace`;
-        ctx.fillText(`Canal: Ch ${m.channel} (${m.band})  Potencia: ${Math.round(m.rssi)} dBm`, p1x - 64 * dpr, p1y - 23 * dpr);
+        const pwrLabel = isMw ? formatPwr(m.rssi) : `${Math.round(m.rssi)} dBm`;
+        ctx.fillText(`Canal: Ch ${m.channel} (${m.band})  Potencia: ${pwrLabel}`, p1x - 64 * dpr, p1y - 23 * dpr);
         ctx.fillText(`BSSID: ${m.bssid}`, p1x - 64 * dpr, p1y - 12 * dpr);
         ctx.restore();
       }
@@ -647,31 +674,11 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
 
             <button
               className="btn-ca-apply"
-              disabled={isApplying}
-              onClick={async () => {
-                setIsApplying(true);
-                try {
-                  const res = await fetch('/api/channels/apply', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      target_channel: suggestedChannel,
-                      band: selectedBand,
-                    }),
-                  });
-                  if (res.ok) {
-                    setAppliedMessage(`Canal Ch ${suggestedChannel} (${selectedBand === '2.4ghz' ? '2.4 GHz' : '5 GHz'}) configurado en el transceptor.`);
-                    setTimeout(() => setAppliedMessage(null), 4000);
-                  }
-                } catch (err) {
-                  console.error('Error applying channel:', err);
-                } finally {
-                  setIsApplying(false);
-                }
-              }}
+              onClick={() => setShowMitigationModal(true)}
+              title="Abrir directiva de mitigación y comandos de configuración para router/AP"
             >
               <i className="bi bi-gear-fill" style={{ color: 'inherit' }}></i>
-              {isApplying ? 'APLICANDO AL HARDWARE...' : `APLICAR CANAL ${suggestedChannel} AUTOMÁTICAMENTE`}
+              <span>APLICAR CANAL {suggestedChannel} (DIRECTIVA TÉCNICA)</span>
             </button>
           </div>
         </div>
@@ -688,6 +695,235 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
           <span>SENSORES FÍSICOS CONECTADOS</span>
         </div>
       </div>
+
+      {/* 5. MODAL DE DIRECTIVA DE MITIGACIÓN RF */}
+      {showMitigationModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(5, 5, 12, 0.85)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--color2)',
+              border: '1px solid var(--color4)',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '680px',
+              padding: '24px',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color3)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'linear-gradient(135deg, #0284c7, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="bi bi-shield-check" style={{ color: '#fff', fontSize: '1.2rem' }}></i>
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--color6)', fontWeight: 800 }}>
+                    Directiva Técnica de Reconfiguración RF
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Aplicación de mitigación co-canal orientada a equipamiento de infraestructura inalámbrica
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMitigationModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}
+              >
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
+
+            {/* Recommended Channel Box */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', backgroundColor: 'var(--color1)', padding: '14px', borderRadius: '8px', border: '1px solid var(--color3)' }}>
+              <div>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', textTransform: 'uppercase', display: 'block' }}>Canal Objetivo</span>
+                <strong style={{ fontSize: '1.15rem', color: '#38bdf8' }}>Canal {suggestedChannel}</strong>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block' }}>{selectedBand === '2.4ghz' ? 'Banda 2.4 GHz' : 'Banda 5 GHz UNII'}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', textTransform: 'uppercase', display: 'block' }}>Ancho de Canal (BW)</span>
+                <strong style={{ fontSize: '1.15rem', color: '#34d399' }}>{selectedBand === '2.4ghz' ? '20 MHz' : '40 / 80 MHz'}</strong>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block' }}>{selectedBand === '2.4ghz' ? 'Máscara no solapada' : 'Agregación limpia'}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', textTransform: 'uppercase', display: 'block' }}>Salud Espectral</span>
+                <strong style={{ fontSize: '1.15rem', color: '#fbbf24' }}>{suggestedScore}/100</strong>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block' }}>Mínima contienda CSMA/CA</span>
+              </div>
+            </div>
+
+            {/* Router CLI Selector */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--color6)' }}>
+                  Comandos de Configuración Automática para Routers / APs:
+                </span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {(['mikrotik', 'cisco', 'openwrt'] as const).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setRouterType(r)}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '0.68rem',
+                        fontFamily: 'var(--font-mono)',
+                        borderRadius: '4px',
+                        border: '1px solid',
+                        borderColor: routerType === r ? '#06b6d4' : 'var(--color3)',
+                        backgroundColor: routerType === r ? 'rgba(6, 182, 212, 0.2)' : 'var(--color1)',
+                        color: routerType === r ? '#38bdf8' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Code Snippet Box */}
+              <div
+                style={{
+                  backgroundColor: '#0a0518',
+                  padding: '12px 14px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(88, 51, 131, 0.5)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.75rem',
+                  color: '#e2e8f0',
+                  lineHeight: '1.5',
+                  position: 'relative',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {routerType === 'mikrotik' &&
+                  `# MikroTik RouterOS Wireless Configuration\n/interface wireless set [find default-name=wlan1] \\\n  channel.band=${selectedBand === '2.4ghz' ? '2ghz-g/n' : '5ghz-onlyac'} \\\n  channel.width=20mhz channel.frequency=${selectedBand === '2.4ghz' ? (2407 + suggestedChannel * 5) : (5000 + suggestedChannel * 5)}\n/interface wireless enable [find default-name=wlan1]`}
+
+                {routerType === 'cisco' &&
+                  `! Cisco IOS Wireless Access Point\nconfigure terminal\ninterface Dot11Radio${selectedBand === '2.4ghz' ? '0' : '1'}\n channel ${suggestedChannel}\n channel-width 20\n no shutdown\nend\nwrite memory`}
+
+                {routerType === 'openwrt' &&
+                  `# OpenWrt / Hostapd Linux Configuration\nuci set wireless.radio0.channel='${suggestedChannel}'\nuci set wireless.radio0.htmode='HT20'\nuci commit wireless\nwifi reload`}
+              </div>
+            </div>
+
+            {/* Actions Bottom Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+              <button
+                onClick={() => {
+                  const textToCopy =
+                    routerType === 'mikrotik'
+                      ? `/interface wireless set [find default-name=wlan1] channel.frequency=${selectedBand === '2.4ghz' ? (2407 + suggestedChannel * 5) : (5000 + suggestedChannel * 5)} channel.width=20mhz`
+                      : routerType === 'cisco'
+                      ? `interface Dot11Radio0\n channel ${suggestedChannel}\n no shutdown`
+                      : `uci set wireless.radio0.channel='${suggestedChannel}' && wifi reload`;
+                  navigator.clipboard.writeText(textToCopy);
+                  setCopiedCli(true);
+                  setTimeout(() => setCopiedCli(false), 2500);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  backgroundColor: 'var(--color1)',
+                  border: '1px solid var(--color4)',
+                  borderRadius: '6px',
+                  color: 'var(--color6)',
+                  fontSize: '0.74rem',
+                  fontFamily: 'var(--font-mono)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                <i className={`bi ${copiedCli ? 'bi-clipboard-check-fill' : 'bi-clipboard'}`} style={{ color: copiedCli ? '#10b981' : 'inherit' }}></i>
+                <span>{copiedCli ? '¡Comandos Copiados!' : 'Copiar Comandos CLI'}</span>
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setShowMitigationModal(false)}
+                  style={{
+                    padding: '7px 14px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--color3)',
+                    borderRadius: '6px',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.74rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cerrar
+                </button>
+
+                <button
+                  disabled={isApplying}
+                  onClick={async () => {
+                    setIsApplying(true);
+                    try {
+                      const res = await fetch('/api/channels/apply', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          target_channel: suggestedChannel,
+                          band: selectedBand,
+                        }),
+                      });
+                      if (res.ok) {
+                        setAppliedMessage(`Canal Ch ${suggestedChannel} (${selectedBand === '2.4ghz' ? '2.4 GHz' : '5 GHz'}) registrado como directiva en el sistema.`);
+                        setShowMitigationModal(false);
+                        setTimeout(() => setAppliedMessage(null), 5000);
+                      }
+                    } catch (err) {
+                      console.error('Error applying channel:', err);
+                    } finally {
+                      setIsApplying(false);
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 16px',
+                    backgroundColor: '#0284c7',
+                    border: '1px solid #38bdf8',
+                    borderRadius: '6px',
+                    color: '#ffffff',
+                    fontSize: '0.74rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 0 10px rgba(6, 182, 212, 0.4)',
+                  }}
+                >
+                  <i className="bi bi-check2-circle"></i>
+                  <span>{isApplying ? 'REGISTRANDO...' : 'REGISTRAR MITIGACIÓN'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

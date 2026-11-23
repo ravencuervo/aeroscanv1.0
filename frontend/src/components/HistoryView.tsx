@@ -10,6 +10,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [realSessions, setRealSessions] = useState<any[]>([]);
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
+  const [comparisonData, setComparisonData] = useState<any>(null);
+  const [isComparing, setIsComparing] = useState(false);
+  const [congestionOnly, setCongestionOnly] = useState(false);
+
+  const comparisonDataRef = useRef<any>(null);
+  comparisonDataRef.current = comparisonData;
+  const bandFilterRef = useRef(bandFilter);
+  bandFilterRef.current = bandFilter;
+  const congestionOnlyRef = useRef(congestionOnly);
+  congestionOnlyRef.current = congestionOnly;
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -36,7 +46,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             color: s.status === 'completed' ? '#10b981' : '#38bdf8',
           }));
           setRealSessions(mapped);
-          if (mapped.length > 0) {
+          if (mapped.length >= 2) {
+            setSelectedSessions([mapped[0].id, mapped[1].id]);
+          } else if (mapped.length > 0) {
             setSelectedSessions([mapped[0].id]);
           }
         }
@@ -65,63 +77,92 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
     window.location.href = `/api/session/${targetId}/export/csv`;
   };
 
-  const handleCompareSessions = () => {
+  const handleExportDiffCsv = () => {
     if (selectedSessions.length < 2) {
-      setCompareMessage('Selecciona al menos 2 casillas de sesión en la tabla para ejecutar el análisis diferencial.');
-    } else {
-      setCompareMessage(`Comparativa activa: Analizando diferencial espectral entre ${selectedSessions[0]} y ${selectedSessions[1]}.`);
+      setCompareMessage('Selecciona al menos 2 casillas en la tabla para descargar la comparativa diferencial CSV.');
+      setTimeout(() => setCompareMessage(null), 4000);
+      return;
     }
-    setTimeout(() => setCompareMessage(null), 5000);
+    const id1 = String(selectedSessions[0]).replace(/[^0-9]/g, '');
+    const id2 = String(selectedSessions[1]).replace(/[^0-9]/g, '');
+    window.location.href = `/api/sessions/compare/csv?id1=${id1}&id2=${id2}`;
   };
 
-  const defaultSessionsData = [
-    {
-      rawId: 1,
-      id: '#SES-2026-081',
-      date: '21 Oct, 09:15:22',
-      channels: 'Ch 1, 6, 11 (2.4G)',
-      occupancy: '78.4% (Alta)',
-      collisions: '142 col/seg',
-      status: 'OPTIMIZADO',
-      color: '#34d399',
-    },
-    {
-      rawId: 2,
-      id: '#SES-2026-080',
-      date: '21 Oct, 08:30:10',
-      channels: 'Ch 36, 44, 48 (5G)',
-      occupancy: '46.1% (Media)',
-      collisions: '18 col/seg',
-      status: 'SEVERO',
-      color: '#ef4444',
-    },
-    {
-      rawId: 3,
-      id: '#SES-2026-079',
-      date: '20 Oct, 18:45:00',
-      channels: 'Ch 6 (2.4G Saturado)',
-      occupancy: '92.0% (Crítico)',
-      collisions: '310 col/seg',
-      status: 'CRÍTICO',
-      color: '#f59e0b',
-    },
-    {
-      rawId: 4,
-      id: '#SES-2026-078',
-      date: '20 Oct, 14:12:33',
-      channels: 'Dual Band Scan',
-      occupancy: '52.3% (Normal)',
-      collisions: '34 col/seg',
-      status: 'OPTIMIZADO',
-      color: '#34d399',
-    },
-  ];
+  const handleExportSessionPdf = async (rawId: number) => {
+    try {
+      setCompareMessage(`Generando dictamen técnico PDF de la auditoría #${rawId}...`);
+      const res = await fetch(`/api/reports/pdf?session_id=${rawId}`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.download_url) {
+          window.open(data.download_url, '_blank');
+        }
+        setCompareMessage(`Informe PDF de sesión #${rawId} generado exitosamente.`);
+      } else {
+        setCompareMessage('No se pudo generar el PDF para esta sesión.');
+      }
+    } catch (err) {
+      console.error('Error generating PDF for session:', err);
+      setCompareMessage('Error de red al emitir el PDF.');
+    } finally {
+      setTimeout(() => setCompareMessage(null), 4000);
+    }
+  };
 
-  const sessionsList = realSessions.length > 0 ? realSessions : defaultSessionsData;
+  const handleDeleteSession = async (rawId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`¿Estás seguro de eliminar permanentemente la auditoría #${rawId} de SQLite?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/session/${rawId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setRealSessions((prev) => prev.filter((s) => s.rawId !== rawId));
+        setSelectedSessions((prev) => prev.filter((id) => id !== `#SES-${rawId}`));
+        if (detailSession?.rawId === rawId) {
+          setDetailSession(null);
+        }
+        setCompareMessage(`Auditoría #${rawId} eliminada correctamente de SQLite.`);
+        setTimeout(() => setCompareMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error('Error deleting session:', err);
+    }
+  };
+
+  const handleCompareSessions = async () => {
+    if (selectedSessions.length < 2) {
+      setCompareMessage('Selecciona al menos 2 casillas de sesión en la tabla para ejecutar el análisis diferencial.');
+      setTimeout(() => setCompareMessage(null), 4000);
+      return;
+    }
+    const id1 = String(selectedSessions[0]).replace(/[^0-9]/g, '');
+    const id2 = String(selectedSessions[1]).replace(/[^0-9]/g, '');
+    try {
+      setIsComparing(true);
+      const res = await fetch(`/api/sessions/compare?id1=${id1}&id2=${id2}`);
+      if (res.ok) {
+        const data = await res.json();
+        setComparisonData(data);
+        setCompareMessage(data.summary || `Comparativa diferencial calculada entre #${id1} y #${id2}.`);
+      } else {
+        setCompareMessage('No se pudieron obtener datos para contrastar estas sesiones.');
+      }
+    } catch (err) {
+      console.error('Error fetching comparison:', err);
+      setCompareMessage('Error de red al consultar la comparativa.');
+    } finally {
+      setIsComparing(false);
+      setTimeout(() => setCompareMessage(null), 6000);
+    }
+  };
+
+  const sessionsList = realSessions;
   const sessionsData = sessionsList.filter((s) =>
     searchQuery
       ? s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.date && s.date.toLowerCase().includes(searchQuery.toLowerCase()))
+        (s.date && s.date.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase()))
       : true
   );
 
@@ -221,65 +262,145 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
         ctx.setLineDash([]);
       };
 
-      // Ch 1: Session A (Purple #865db1) & Session B (Cyan #06b6d4)
-      drawComparativeCurve(0.18, 0.22, -62, '#865db1', 'rgba(134, 93, 177, 0.25)');
-      drawComparativeCurve(0.18, 0.22, -64, '#06b6d4', 'rgba(6, 182, 212, 0.25)', true);
+      const currentBand = bandFilterRef.current;
+      const onlyCongested = congestionOnlyRef.current;
 
-      // Ch 6: Session A was High (-36 dBm, congested), Session B reduced to (-64 dBm)
-      drawComparativeCurve(0.50, 0.28, -36, '#865db1', 'rgba(134, 93, 177, 0.35)');
-      drawComparativeCurve(0.50, 0.24, -64, '#06b6d4', 'rgba(6, 182, 212, 0.4)');
-
-      // Ch 11: Session B increased to (-60 dBm, absorbing load)
-      drawComparativeCurve(0.82, 0.24, -60, '#06b6d4', 'rgba(6, 182, 212, 0.4)');
-
-      // Delta Marker on Ch 6
-      const mx = padLeft + plotW * 0.50;
-      const my = padTop + plotH * (1 - (-36 - -95) / 65);
-      ctx.fillStyle = '#1e053e';
-      ctx.strokeStyle = '#06b6d4';
-      ctx.lineWidth = 1.2 * dpr;
-      ctx.beginPath();
-      ctx.roundRect(mx - 75 * dpr, my - 34 * dpr, 150 * dpr, 28 * dpr, 4 * dpr);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = `bold ${7.5 * dpr}px 'JetBrains Mono', monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText('DELTA: -28 dBm INTERFERENCIA', mx, my - 20 * dpr);
-      ctx.fillStyle = '#9c80bd';
-      ctx.font = `${6.8 * dpr}px 'JetBrains Mono', monospace`;
-      ctx.fillText('Solapamiento co-canal mitigado en Ch 6', mx, my - 10 * dpr);
-
-      // Channel Frequency ticks
-      const channels = [
-        { ch: 'Ch 1', f: '2412M', r: 0.18 },
-        { ch: 'Ch 2', r: 0.24 },
-        { ch: 'Ch 3', r: 0.30 },
-        { ch: 'Ch 4', r: 0.36 },
-        { ch: 'Ch 5', r: 0.42 },
-        { ch: 'Ch 6', f: '2437M', r: 0.50 },
-        { ch: 'Ch 7', r: 0.56 },
-        { ch: 'Ch 8', r: 0.62 },
-        { ch: 'Ch 9', r: 0.68 },
-        { ch: 'Ch 10', r: 0.74 },
-        { ch: 'Ch 11', f: '2462M', r: 0.82 },
-        { ch: 'Ch 12', r: 0.88 },
-        { ch: 'Ch 13', r: 0.94 },
+      const twoFourTicks = [
+        { ch: 'Ch 1', f: '2412M', num: 1, r: 0.16 },
+        { ch: 'Ch 2', num: 2, r: 0.22 },
+        { ch: 'Ch 3', num: 3, r: 0.28 },
+        { ch: 'Ch 4', num: 4, r: 0.34 },
+        { ch: 'Ch 5', num: 5, r: 0.40 },
+        { ch: 'Ch 6', f: '2437M', num: 6, r: 0.48 },
+        { ch: 'Ch 7', num: 7, r: 0.54 },
+        { ch: 'Ch 8', num: 8, r: 0.60 },
+        { ch: 'Ch 9', num: 9, r: 0.66 },
+        { ch: 'Ch 10', num: 10, r: 0.72 },
+        { ch: 'Ch 11', f: '2462M', num: 11, r: 0.80 },
+        { ch: 'Ch 12', num: 12, r: 0.86 },
+        { ch: 'Ch 13', num: 13, r: 0.92 },
       ];
 
-      channels.forEach((c) => {
-        const x = padLeft + plotW * c.r;
-        ctx.fillStyle = c.f ? '#38bdf8' : '#9c80bd';
-        ctx.font = `${7 * dpr}px 'JetBrains Mono', monospace`;
+      const fiveGTicks = [
+        { ch: 'Ch 36', f: '5180M', num: 36, r: 0.10 },
+        { ch: 'Ch 40', num: 40, r: 0.18 },
+        { ch: 'Ch 44', num: 44, r: 0.26 },
+        { ch: 'Ch 48', f: '5240M', num: 48, r: 0.34 },
+        { ch: 'Ch 52', num: 52, r: 0.42 },
+        { ch: 'Ch 100', f: '5500M', num: 100, r: 0.54 },
+        { ch: 'Ch 116', num: 116, r: 0.62 },
+        { ch: 'Ch 132', num: 132, r: 0.70 },
+        { ch: 'Ch 149', f: '5745M', num: 149, r: 0.78 },
+        { ch: 'Ch 157', num: 157, r: 0.86 },
+        { ch: 'Ch 165', f: '5825M', num: 165, r: 0.94 },
+      ];
+
+      const activeTicks = currentBand === '5ghz' ? fiveGTicks : twoFourTicks;
+
+      // Dynamic real comparative curves from SQLite telemetry
+      const comp = comparisonDataRef.current;
+      let deltas = comp?.deltas || [];
+
+      if (currentBand === '2.4ghz') {
+        deltas = deltas.filter((d: any) => d.channel <= 14);
+      } else if (currentBand === '5ghz') {
+        deltas = deltas.filter((d: any) => d.channel > 14);
+      }
+      if (onlyCongested) {
+        deltas = deltas.filter((d: any) => (d.ap_count_1 > 1 || d.ap_count_2 > 1 || Math.abs(d.delta_rssi) >= 1.0));
+      }
+
+      if (currentBand === '6ghz') {
+        ctx.fillStyle = '#9c80bd';
+        ctx.font = `${9 * dpr}px 'JetBrains Mono', monospace`;
         ctx.textAlign = 'center';
-        ctx.fillText(c.ch, x, h - padBottom + 14 * dpr);
-        if (c.f) {
-          ctx.fillStyle = '#64748b';
-          ctx.font = `${6 * dpr}px 'JetBrains Mono', monospace`;
-          ctx.fillText(c.f, x, h - padBottom + 24 * dpr);
+        ctx.fillText(
+          'BANDA 6 GHz (Wi-Fi 6E / Wi-Fi 7): Requiere transceptor compatible en rango 5.925 - 7.125 GHz',
+          padLeft + plotW / 2,
+          padTop + plotH / 2
+        );
+      } else if (comp && deltas.length > 0) {
+        deltas.forEach((d: any) => {
+          let cxRatio = 0.5;
+          if (currentBand === '5ghz') {
+            const match = fiveGTicks.find((t) => t.num === d.channel);
+            cxRatio = match ? match.r : 0.5;
+          } else {
+            const match = twoFourTicks.find((t) => t.num === d.channel);
+            cxRatio = match ? match.r : (d.channel <= 14 ? 0.16 + ((d.channel - 1) / 12) * 0.76 : 0.5);
+          }
+
+          // Session 1 curve (Purple)
+          if (d.ap_count_1 > 0) {
+            drawComparativeCurve(cxRatio, 0.16, d.max_rssi_1, '#865db1', 'rgba(134, 93, 177, 0.25)');
+          }
+          // Session 2 curve (Cyan dashed)
+          if (d.ap_count_2 > 0) {
+            drawComparativeCurve(cxRatio, 0.16, d.max_rssi_2, '#06b6d4', 'rgba(6, 182, 212, 0.25)', true);
+          }
+        });
+
+        // Real Delta Marker
+        const maxCh = comp.max_delta_channel;
+        const maxDelta = comp.max_delta_rssi;
+        const channelMatchesBand = currentBand === 'all' || (currentBand === '2.4ghz' ? maxCh <= 14 : maxCh > 14);
+        if (maxCh && Math.abs(maxDelta) > 0.1 && channelMatchesBand) {
+          let cxRatio = 0.5;
+          if (currentBand === '5ghz') {
+            const match = fiveGTicks.find((t) => t.num === maxCh);
+            cxRatio = match ? match.r : 0.5;
+          } else {
+            const match = twoFourTicks.find((t) => t.num === maxCh);
+            cxRatio = match ? match.r : (maxCh <= 14 ? 0.16 + ((maxCh - 1) / 12) * 0.76 : 0.5);
+          }
+          const mx = padLeft + plotW * cxRatio;
+          const targetDbm = Math.max(-85, Math.min(-35, -55 + maxDelta));
+          const my = padTop + plotH * (1 - (targetDbm - -95) / 65);
+
+          ctx.fillStyle = '#1e053e';
+          ctx.strokeStyle = maxDelta <= 0 ? '#10b981' : '#f87171';
+          ctx.lineWidth = 1.2 * dpr;
+          ctx.beginPath();
+          ctx.roundRect(mx - 85 * dpr, my - 34 * dpr, 170 * dpr, 28 * dpr, 4 * dpr);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = maxDelta <= 0 ? '#34d399' : '#f87171';
+          ctx.font = `bold ${7.5 * dpr}px 'JetBrains Mono', monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText(`DELTA: ${maxDelta > 0 ? '+' : ''}${maxDelta} dBm (Ch ${maxCh})`, mx, my - 20 * dpr);
+          ctx.fillStyle = '#9c80bd';
+          ctx.font = `${6.8 * dpr}px 'JetBrains Mono', monospace`;
+          ctx.fillText(`Variación espectral entre sesiones`, mx, my - 10 * dpr);
         }
-      });
+      } else {
+        // Baseline curve representation
+        drawComparativeCurve(0.18, 0.22, -62, '#865db1', 'rgba(134, 93, 177, 0.25)');
+        drawComparativeCurve(0.50, 0.26, -42, '#865db1', 'rgba(134, 93, 177, 0.35)');
+        drawComparativeCurve(0.82, 0.22, -58, '#865db1', 'rgba(134, 93, 177, 0.25)');
+
+        // Prompt message
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = `bold ${8 * dpr}px 'JetBrains Mono', monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText('SELECCIONA 2 AUDITORÍAS EN LA TABLA Y PULSA "COMPARAR" PARA CALCULAR EL DELTA REAL', padLeft + plotW / 2, padTop + 24 * dpr);
+      }
+
+      // Channel Frequency ticks
+      if (currentBand !== '6ghz') {
+        activeTicks.forEach((c) => {
+          const x = padLeft + plotW * c.r;
+          ctx.fillStyle = c.f ? '#38bdf8' : '#9c80bd';
+          ctx.font = `${7 * dpr}px 'JetBrains Mono', monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText(c.ch, x, h - padBottom + 14 * dpr);
+          if (c.f) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = `${6 * dpr}px 'JetBrains Mono', monospace`;
+            ctx.fillText(c.f, x, h - padBottom + 24 * dpr);
+          }
+        });
+      }
 
       animId = requestAnimationFrame(render);
     };
@@ -326,12 +447,28 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             </button>
           </div>
 
-          <div className="hist-congestion-box">
-            <i className="bi bi-funnel"></i>
-            <span>CONGESTIÓN: Moderada & Crítica</span>
+          <div
+            className={`hist-congestion-box ${congestionOnly ? 'active' : ''}`}
+            onClick={() => setCongestionOnly(!congestionOnly)}
+            style={{
+              cursor: 'pointer',
+              border: congestionOnly ? '1px solid #f59e0b' : undefined,
+              backgroundColor: congestionOnly ? 'rgba(245, 158, 11, 0.15)' : undefined,
+              color: congestionOnly ? '#fbbf24' : undefined,
+            }}
+            title="Alternar entre todos los canales o solo los que presentan congestión o variación"
+          >
+            <i className={`bi ${congestionOnly ? 'bi-funnel-fill' : 'bi-funnel'}`}></i>
+            <span>{congestionOnly ? 'CONGESTIÓN: Solo Canales Afectados' : 'CONGESTIÓN: Todos los Canales'}</span>
           </div>
 
-          <button className="hist-clear-btn" onClick={() => setBandFilter('all')}>
+          <button
+            className="hist-clear-btn"
+            onClick={() => {
+              setBandFilter('all');
+              setCongestionOnly(false);
+            }}
+          >
             <i className="bi bi-arrow-counterclockwise"></i> Limpiar filtros
           </button>
         </div>
@@ -340,8 +477,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           <span className="hist-marked-tag">
             {selectedSessions.length} SESIONES MARCADAS
           </span>
-          <button className="btn-hist-compare" onClick={handleCompareSessions}>
-            <i className="bi bi-plus-lg"></i> Comparar 2 Sesiones Seleccionadas
+          <button className="btn-hist-compare" onClick={handleCompareSessions} disabled={isComparing}>
+            <i className={`bi ${isComparing ? 'bi-arrow-repeat' : 'bi-plus-lg'}`}></i>
+            <span>{isComparing ? 'Calculando diferencial...' : 'Comparar 2 Sesiones Seleccionadas'}</span>
           </button>
         </div>
       </div>
@@ -401,7 +539,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               </span>
             </div>
             <div className="verdict-actions">
-              <button className="btn-verdict-csv" onClick={() => handleExportCsv()}>
+              <button className="btn-verdict-csv" onClick={handleExportDiffCsv}>
                 Exportar CSV Diff
               </button>
               <button className="btn-verdict-pdf" onClick={onGeneratePdf}>
@@ -415,64 +553,75 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
         <div className="hist-delta-summary-card">
           <div className="delta-card-header">
             <span className="delta-title">RESUMEN DELTA (A vs B)</span>
-            <span className="delta-status-badge">ESTADO: MEJORA NOTABLE</span>
+            <span className="delta-status-badge">
+              {comparisonData ? 'TELEMETRÍA REAL' : 'MODO COMPARATIVO'}
+            </span>
           </div>
 
           <div className="delta-metrics-list">
             {/* Metric 1 */}
             <div className="delta-metric-box">
               <div className="d-metric-top">
-                <span className="d-lbl">OCUPACIÓN ESPECTRAL</span>
-                <span className="d-gain" style={{ color: '#34d399' }}>-32.3% mejora</span>
+                <span className="d-lbl">AUDITORÍAS COMPARADAS</span>
+                <span className="d-gain" style={{ color: '#38bdf8' }}>
+                  {comparisonData ? `#SES-${comparisonData.session_1.id} ➔ #SES-${comparisonData.session_2.id}` : 'Seleccionar 2 Sesiones'}
+                </span>
               </div>
               <div className="d-val-row">
-                <span className="d-prev">78.4%</span>
+                <span className="d-prev">{comparisonData?.session_1?.name || 'Sesión A'}</span>
                 <i className="bi bi-arrow-right"></i>
-                <span className="d-cur">46.1%</span>
+                <span className="d-cur">{comparisonData?.session_2?.name || 'Sesión B'}</span>
               </div>
               <div className="d-bar-track">
-                <div className="d-bar-fill" style={{ width: '46.1%' }}></div>
+                <div className="d-bar-fill" style={{ width: comparisonData ? '100%' : '50%' }}></div>
               </div>
             </div>
 
             {/* Metric 2 */}
             <div className="delta-metric-box">
               <div className="d-metric-top">
-                <span className="d-lbl">COLISIONES CO-CANAL</span>
-                <span className="d-gain" style={{ color: '#34d399' }}>-54% Reducción</span>
+                <span className="d-lbl">MAYOR VARIACIÓN (CANAL {comparisonData?.max_delta_channel || 6})</span>
+                <span className="d-gain" style={{ color: (comparisonData?.max_delta_rssi || 0) <= 0 ? '#34d399' : '#f87171' }}>
+                  {comparisonData ? `${comparisonData.max_delta_rssi > 0 ? '+' : ''}${comparisonData.max_delta_rssi} dBm` : '-14 dBm'}
+                </span>
               </div>
               <p className="d-desc">
-                Mitigación crítica tras desplazar APs prioritarios hacia Canal 11 y Canal 36 (UNII-1).
+                {comparisonData
+                  ? `Canal ${comparisonData.max_delta_channel}: variación de potencia registrada entre las dos capturas de espectro.`
+                  : 'Diferencial de potencia co-canal calculado automáticamente desde SQLite.'}
               </p>
-              <span className="d-sub-info">• Retransmisiones: bajó de 18.2% a 3.1%</span>
+              <span className="d-sub-info">
+                • {comparisonData?.summary || 'Marca 2 casillas en la tabla y pulsa "Comparar"'}
+              </span>
             </div>
 
             {/* Metric 3 */}
             <div className="delta-metric-box">
               <div className="d-metric-top">
-                <span className="d-lbl">ESTABILIDAD RSSI (DESV. ESTÁNDAR)</span>
-                <span className="d-gain" style={{ color: '#38bdf8' }}>3.5x más estable</span>
+                <span className="d-lbl">CANALES ANALIZADOS</span>
+                <span className="d-gain" style={{ color: '#38bdf8' }}>
+                  {comparisonData ? `${comparisonData.deltas?.length || 0} Canales` : '2.4G & 5G'}
+                </span>
               </div>
               <div className="d-val-row">
-                <span className="d-prev">±6.8 dBm</span>
+                <span className="d-prev">{comparisonData?.session_1?.engine_type?.toUpperCase() || 'WLAN'}</span>
                 <i className="bi bi-arrow-right"></i>
-                <span className="d-cur">±1.9 dBm</span>
+                <span className="d-cur">{comparisonData?.session_2?.engine_type?.toUpperCase() || 'WLAN'}</span>
               </div>
-              <span className="d-sub-info">Dispersión de potencia RF mitigada de forma uniforme</span>
+              <span className="d-sub-info">Transceptores de hardware sincronizados</span>
             </div>
 
             {/* Metric 4 */}
             <div className="delta-metric-box">
               <div className="d-metric-top">
-                <span className="d-lbl">APS EN CONFLICTO / SOLAPADOS</span>
-                <span className="d-gain" style={{ color: '#34d399' }}>-14 APs</span>
+                <span className="d-lbl">ESTADO DE MITIGACIÓN</span>
+                <span className="d-gain" style={{ color: '#34d399' }}>
+                  {comparisonData ? 'Cálculo Matemático OK' : 'Listo'}
+                </span>
               </div>
-              <div className="d-val-row">
-                <span className="d-prev">16 APs (A)</span>
-                <i className="bi bi-arrow-right"></i>
-                <span className="d-cur">2 APs (B)</span>
-              </div>
-              <span className="d-sub-info">Solapamiento residual tolerado</span>
+              <p className="d-desc" style={{ fontSize: '0.72rem', color: 'var(--color6)' }}>
+                {comparisonData?.summary || 'Selecciona al menos dos sesiones para contrastar la densidad espectral.'}
+              </p>
             </div>
           </div>
         </div>
@@ -495,7 +644,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <span className="hist-showing-txt">Mostrando 4 de 48 capturas</span>
+            <span className="hist-showing-txt">Mostrando {sessionsData.length} auditorías en base de datos</span>
           </div>
         </div>
 
@@ -505,51 +654,91 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               <tr>
                 <th style={{ width: '40px' }}>SEL</th>
                 <th>ID SESIÓN</th>
+                <th>NOMBRE AUDITORÍA</th>
+                <th>UBICACIÓN</th>
                 <th>FECHA Y HORA</th>
-                <th>CANAL MUESTRAS</th>
-                <th>OCUPACIÓN GLOBAL</th>
-                <th>COLISIONES</th>
+                <th>MUESTRAS REGISTRADAS</th>
                 <th>ESTADO</th>
                 <th>ACCIONES</th>
               </tr>
             </thead>
             <tbody>
-              {sessionsData.map((ses) => {
-                const isSelected = selectedSessions.includes(ses.id);
-                return (
-                  <tr key={ses.id} className={isSelected ? 'selected-row' : ''}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(ses.id)}
-                      />
-                    </td>
-                    <td className="cell-ses-id">{ses.id}</td>
-                    <td className="cell-ses-date">{ses.date}</td>
-                    <td className="cell-ses-chan">{ses.channels}</td>
-                    <td className="cell-ses-occ">{ses.occupancy}</td>
-                    <td className="cell-ses-col">{ses.collisions}</td>
-                    <td>
-                      <span
-                        className="badge-ses-status"
-                        style={{
-                          borderColor: ses.color,
-                          color: ses.color,
-                          backgroundColor: ses.color + '15',
-                        }}
-                      >
-                        {ses.status}
-                      </span>
-                    </td>
-                    <td>
-                      <button className="btn-ses-view" onClick={() => handleOpenDetail(ses)}>
-                        Ver Detalle
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {sessionsData.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                    No se encontraron auditorías registradas en SQLite. Utiliza el botón "+ Nueva Auditoría" para iniciar una.
+                  </td>
+                </tr>
+              ) : (
+                sessionsData.map((ses) => {
+                  const isSelected = selectedSessions.includes(ses.id);
+                  return (
+                    <tr key={ses.id} className={isSelected ? 'selected-row' : ''}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(ses.id)}
+                        />
+                      </td>
+                      <td className="cell-ses-id">{ses.id}</td>
+                      <td className="cell-ses-id" style={{ color: 'var(--color6)', fontWeight: 700 }}>{ses.name}</td>
+                      <td className="cell-ses-chan">{ses.location || 'Sitio'}</td>
+                      <td className="cell-ses-date">{ses.date}</td>
+                      <td className="cell-ses-col">{ses.collisions}</td>
+                      <td>
+                        <span
+                          className="badge-ses-status"
+                          style={{
+                            borderColor: ses.color,
+                            color: ses.color,
+                            backgroundColor: ses.color + '15',
+                          }}
+                        >
+                          {ses.status}
+                        </span>
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button className="btn-ses-view" onClick={() => handleOpenDetail(ses)}>
+                            Ver Muestras
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExportCsv(ses.rawId);
+                            }}
+                            className="btn-ses-view"
+                            style={{ backgroundColor: 'rgba(6, 182, 212, 0.15)', borderColor: '#06b6d4', color: '#38bdf8', padding: '4px 7px' }}
+                            title="Descargar muestras CSV de esta sesión"
+                          >
+                            <i className="bi bi-file-earmark-spreadsheet"></i>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExportSessionPdf(ses.rawId);
+                            }}
+                            className="btn-ses-view"
+                            style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: '#10b981', color: '#34d399', padding: '4px 7px' }}
+                            title="Generar dictamen técnico PDF de esta sesión"
+                          >
+                            <i className="bi bi-file-earmark-pdf"></i>
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteSession(ses.rawId, e)}
+                            className="btn-ses-view"
+                            style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444', color: '#fca5a5', padding: '4px 7px' }}
+                            title="Eliminar permanentemente esta sesión de SQLite"
+                          >
+                            <i className="bi bi-trash3"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -636,6 +825,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                 <span style={{ fontSize: '0.76rem', color: '#38bdf8', fontWeight: 600 }}>
                   Muestras Capturadas en Hardware ({detailSamples.length} registros)
                 </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   onClick={() => handleExportCsv(detailSession.rawId)}
                   style={{
@@ -654,7 +844,26 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                 >
                   <i className="bi bi-file-earmark-spreadsheet"></i> Descargar CSV
                 </button>
+                <button
+                  onClick={() => handleExportSessionPdf(detailSession.rawId)}
+                  style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                    border: '1px solid #10b981',
+                    color: '#34d399',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <i className="bi bi-file-earmark-pdf"></i> Informe PDF
+                </button>
               </div>
+            </div>
 
               {isLoadingSamples ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: '#9c80bd', fontSize: '0.85rem' }}>

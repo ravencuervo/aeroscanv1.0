@@ -35,6 +35,7 @@ export const App: React.FC = () => {
   const [metrics, setMetrics] = useState<SpectrumMetrics | null>(null);
   const [recommendations, setRecommendations] = useState<SpectrumRecommendations | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [systemInfo, setSystemInfo] = useState<any>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const isBufferPausedRef = useRef(isBufferPaused);
@@ -106,6 +107,22 @@ export const App: React.FC = () => {
       }
     };
     fetchAdapters();
+
+    // Fetch real system and storage info
+    const fetchSystemInfo = async () => {
+      try {
+        const res = await fetch('/api/system/info');
+        if (res.ok) {
+          const data = await res.json();
+          setSystemInfo(data);
+        }
+      } catch (err) {
+        console.warn('Error fetching system info:', err);
+      }
+    };
+    fetchSystemInfo();
+    const sysTimer = setInterval(fetchSystemInfo, 10000);
+    return () => clearInterval(sysTimer);
   }, []);
 
   // Connect WebSocket when authenticated
@@ -287,6 +304,9 @@ export const App: React.FC = () => {
           isCapturing={isCapturing}
           onTabChange={setActiveNav}
           onLogout={handleLogout}
+          onOpenNewSession={() => setIsModalOpen(true)}
+          systemInfo={systemInfo}
+          totalPackets={totalPackets}
         />
 
         {/* Main Dashboard Area */}
@@ -299,6 +319,7 @@ export const App: React.FC = () => {
             activeTab={activeNav}
             onLogout={handleLogout}
             onNavigate={setActiveNav}
+            onOpenNewSession={() => setIsModalOpen(true)}
           />
 
           <div className="dashboard-content-body">
@@ -308,6 +329,7 @@ export const App: React.FC = () => {
                 accessPoints={accessPoints}
                 metrics={metrics}
                 recommendations={recommendations}
+                onNavigate={setActiveNav}
               />
             )}
 
@@ -393,6 +415,7 @@ export const App: React.FC = () => {
                 adapters={adapters}
                 selectedAdapter={selectedAdapter}
                 accessPoints={accessPoints}
+                totalPackets={totalPackets}
                 onTriggerScan={() => handleSelectAdapter(selectedAdapter)}
               />
             )}

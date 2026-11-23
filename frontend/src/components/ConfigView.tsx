@@ -25,6 +25,28 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [isVacuuming, setIsVacuuming] = useState(false);
+  const [vacuumMessage, setVacuumMessage] = useState<string | null>(null);
+
+  const handleVacuum = async () => {
+    setIsVacuuming(true);
+    try {
+      const res = await fetch('/api/system/db/vacuum', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setVacuumMessage(`Base de datos compactada con éxito. Tamaño actual: ${data.after_formatted}.`);
+        fetch('/api/system/info')
+          .then((r) => r.json())
+          .then((d) => setSystemInfo(d));
+      }
+    } catch (err) {
+      console.error('Error executing vacuum:', err);
+      setVacuumMessage('Error al ejecutar VACUUM.');
+    } finally {
+      setIsVacuuming(false);
+      setTimeout(() => setVacuumMessage(null), 5000);
+    }
+  };
 
   useEffect(() => {
     setCurrentAdapter(selectedAdapter);
@@ -424,7 +446,23 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               >
                 <i className="bi bi-arrow-repeat"></i> Actualizar Métricas
               </button>
+              <button
+                className="btn-config-save"
+                style={{ flex: 1, padding: '7px 12px', fontSize: '0.72rem' }}
+                onClick={handleVacuum}
+                disabled={isVacuuming}
+                title="Desfragmentar base de datos SQLite y compactar páginas de memoria"
+              >
+                <i className={`bi ${isVacuuming ? 'bi-arrow-repeat' : 'bi-speedometer2'}`}></i>
+                {isVacuuming ? 'Compactando...' : 'Optimizar BD (VACUUM)'}
+              </button>
             </div>
+            {vacuumMessage && (
+              <span style={{ fontSize: '0.7rem', color: '#38bdf8', marginTop: '6px', display: 'block' }}>
+                <i className="bi bi-info-circle" style={{ marginRight: '4px' }}></i>
+                {vacuumMessage}
+              </span>
+            )}
           </div>
         </div>
       </div>

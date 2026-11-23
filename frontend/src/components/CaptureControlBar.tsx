@@ -8,6 +8,7 @@ interface CaptureControlBarProps {
   totalAps: number;
   totalPackets?: number;
   sessionDuration?: number;
+  dwellTimeMs?: number;
   adapters?: WirelessAdapter[];
   selectedAdapter?: string;
   onSelectAdapter?: (adapterId: string) => void;
@@ -26,6 +27,7 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
   totalAps,
   totalPackets,
   sessionDuration,
+  dwellTimeMs,
   adapters = [],
   selectedAdapter = 'ALL',
   onSelectAdapter,
@@ -40,6 +42,20 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
   const [internalBand24, setInternalBand24] = useState(true);
   const [internalBand5, setInternalBand5] = useState(true);
   const [internalIsPaused, setInternalIsPaused] = useState(false);
+  const [dwellTime, setDwellTime] = useState<number>(dwellTimeMs || 100);
+
+  useEffect(() => {
+    if (dwellTimeMs) {
+      setDwellTime(dwellTimeMs);
+    } else {
+      fetch('/api/config')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.dwell_time_ms) setDwellTime(d.dwell_time_ms);
+        })
+        .catch(() => {});
+    }
+  }, [dwellTimeMs]);
 
   const band24 = externalBand24 !== undefined ? externalBand24 : internalBand24;
   const band5 = externalBand5 !== undefined ? externalBand5 : internalBand5;
@@ -229,7 +245,7 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
 
           <div className="dwell-time-box">
             <span>DWELL TIME:</span>
-            <span className="dwell-badge">100 ms</span>
+            <span className="dwell-badge">{dwellTime} ms</span>
             <span>(Tiempo por canal)</span>
           </div>
         </div>
@@ -258,10 +274,21 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
             onClick={() => {
               window.location.href = '/api/export/pcap';
             }}
-            title="Descargar volcado estructurado de tramas RF capturadas"
+            title="Descargar captura binaria de balizas en formato estándar libpcap para Wireshark"
           >
-            <i className="bi bi-box-arrow-down"></i>
-            <span>EXPORTAR VOLCADO PCAP / JSON</span>
+            <i className="bi bi-file-earmark-binary"></i>
+            <span>PCAP WIRESHARK</span>
+          </button>
+
+          <button
+            className="btn-tactical-export"
+            onClick={() => {
+              window.location.href = '/api/export/json';
+            }}
+            title="Descargar volcado estructurado de tramas RF en formato JSON"
+          >
+            <i className="bi bi-filetype-json"></i>
+            <span>JSON DUMP</span>
           </button>
         </div>
       </div>

@@ -2,6 +2,8 @@ import os
 import sys
 import json
 import time
+import struct
+import shutil
 import logging
 import asyncio
 from pathlib import Path
@@ -9,13 +11,13 @@ from typing import List, Dict, Any, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.core.config import SERVER_HOST, SERVER_PORT, REPORTS_DIR, BASE_DIR, REGISTRATION_URL
+from app.core.config import SERVER_HOST, SERVER_PORT, REPORTS_DIR, BASE_DIR, DATA_DIR, DB_PATH, REGISTRATION_URL
 from app.core.database import init_database, DatabaseManager
-from app.capture.hal import ScannedAP, BaseCaptureEngine
+from app.capture.hal import ScannedAP, BaseCaptureEngine, channel_to_frequency
 from app.capture import create_capture_engine
 from app.analysis.metrics import SpectrumAnalyzer
 from app.analysis.optimizer import SpectrumOptimizer
@@ -393,34 +395,6 @@ async def get_capture_status():
         "total_aps": len(state.latest_aps)
     }
 
-@app.get("/api/export/pcap")
-async def export_pcap_dump():
-    """Exports structured frames dump in JSON/PCAP-compatible format."""
-    samples = []
-    if state.current_session_id:
-        samples = DatabaseManager.get_session_samples(state.current_session_id, limit=5000)
-    if not samples and state.latest_aps:
-        samples = [ap.to_dict() for ap in state.latest_aps]
-
-    export_payload = {
-        "format": "AeroScan-RF-Dump-v1",
-        "timestamp": time.time(),
-        "session_id": state.current_session_id,
-        "engine": state.engine_type,
-        "adapter": state.selected_adapter,
-        "total_records": len(samples),
-        "frames": samples
-    }
-
-    from fastapi.responses import Response
-    json_bytes = json.dumps(export_payload, indent=2, ensure_ascii=False).encode("utf-8")
-    filename = f"aeroscan_dump_session_{state.current_session_id or 'live'}_{int(time.time())}.json"
-    return Response(
-        content=json_bytes,
-        media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-    )
-
 @app.post("/api/session/start")
 async def start_session(req: StartSessionRequest):
     if state.engine and state.engine.is_running:
@@ -516,25 +490,122 @@ async def apply_channel_configuration(req: ApplyChannelRequest):
         "message": f"Canal Ch {req.target_channel} ({req.band}) aplicado satisfactoriamente en los transceptores de radiofrecuencia."
     }
 
+def build_binary_pcap(samples: List[Dict[str, Any]]) -> bytes:
+    """
+    Generate standard binary libpcap capture file containing synthetic 802.11 Beacon Frames.
+    LinkType: LINKTYPE_IEEE802_11 (105).
+    Fully compatible with Wireshark, TShark and libpcap parsers.
+    """
+    # Global Header (24 bytes):
+    # Magic (0xa1b2c3d4), Version 2.4, Zone 0, Sigfigs 0, Snaplen 65535, Network 105 (IEEE 802.11)
+    global_hdr = struct.pack("<IHHiIII", 0xa1b2c3d4, 2, 4, 0, 0, 65535, 105)
+    packets = [global_hdr]
+    base_time = int(time.time())
+
+    for idx, ap in enumerate(samples):
+        bssid_clean = str(ap.get("bssid", "00:11:22:33:44:55")).replace("-", ":").upper()
+        try:
+            bssid_bytes = bytes.fromhex(bssid_clean.replace(":", ""))
+            if len(bssid_bytes) != 6:
+                bssid_bytes = b"\x00\x11\x22\x33\x44\x55"
+        except Exception:
+            bssid_bytes = b"\x00\x11\x22\x33\x44\x55"
+
+        ssid = str(ap.get("ssid", "") or "<Oculta>")
+        ssid_bytes = ssid.encode("utf-8", errors="ignore")[:32]
+        ch = int(ap.get("channel", 1))
+
+        # 802.11 Beacon Frame Header (24 bytes)
+        fc = 0x8000  # Frame Control: Management Beacon
+        seq = ((idx + 1) % 4096) << 4
+        mac_hdr = struct.pack("<HH6s6s6sH", fc, 0, b"\xff"*6, bssid_bytes, bssid_bytes, seq)
+
+        # Fixed parameters (12 bytes): Timestamp, Beacon Interval (100 TU), Capabilities
+        sec = str(ap.get("security", "")).upper()
+        cap = 0x0011 if ("WPA" in sec or "WEP" in sec) else 0x0001
+        fixed = struct.pack("<QHH", (base_time * 1000000) + idx * 50000, 100, cap)
+
+        # Tagged parameters (IEs)
+        tag_ssid = struct.pack("BB", 0, len(ssid_bytes)) + ssid_bytes
+        rates = b"\x82\x84\x8b\x96\x0c\x12\x18\x24"
+        tag_rates = struct.pack("BB", 1, len(rates)) + rates
+        tag_channel = struct.pack("BBB", 3, 1, ch if 1 <= ch <= 14 else 1)
+
+        frame = mac_hdr + fixed + tag_ssid + tag_rates + tag_channel + b"\x00\x00\x00\x00"
+
+        # Packet Header (16 bytes)
+        ts_sec = base_time + (idx // 10)
+        ts_usec = (idx % 10) * 100000
+        pkt_len = len(frame)
+        pkt_hdr = struct.pack("<IIII", ts_sec, ts_usec, pkt_len, pkt_len)
+        packets.append(pkt_hdr + frame)
+
+    return b"".join(packets)
+
 @app.get("/api/system/info")
 async def get_system_info():
     import platform
-    db_file = BASE_DIR / "scan.db"
-    db_size = db_file.stat().st_size if db_file.exists() else 0
+    db_size = DB_PATH.stat().st_size if DB_PATH.exists() else 0
+
+    # Real disk usage
+    disk_total = 0
+    disk_free = 0
+    disk_used = 0
+    disk_pct = 0.0
+    try:
+        total, used, free = shutil.disk_usage(DATA_DIR)
+        disk_total = total
+        disk_free = free
+        disk_used = used
+        disk_pct = round((used / total) * 100, 1)
+    except Exception:
+        pass
+
     adapters = [a.to_dict() for a in state.engine.get_adapters()] if (state.engine and hasattr(state.engine, "get_adapters")) else []
     return {
         "platform": platform.platform(),
         "python_version": platform.python_version(),
         "system": platform.system(),
         "processor": platform.processor(),
-        "db_path": str(db_file),
+        "db_path": str(DB_PATH),
         "db_size_bytes": db_size,
-        "db_size_formatted": f"{db_size / (1024*1024):.2f} MB",
+        "db_size_formatted": f"{db_size / (1024*1024):.2f} MB" if db_size >= 1024*1024 else f"{db_size / 1024:.1f} KB",
+        "disk_total_bytes": disk_total,
+        "disk_free_bytes": disk_free,
+        "disk_used_bytes": disk_used,
+        "disk_total_formatted": f"{disk_total / (1024**3):.1f} GB",
+        "disk_free_formatted": f"{disk_free / (1024**3):.1f} GB",
+        "disk_usage_percent": disk_pct,
         "active_session_id": state.current_session_id,
         "active_adapters_count": len(adapters),
         "adapters": adapters,
-        "total_aps_cached": len(state.latest_aps)
+        "total_aps_cached": len(state.latest_aps),
+        "total_packets_captured": state.total_frames_captured
     }
+
+@app.get("/api/sessions/compare")
+async def compare_sessions_endpoint(id1: int, id2: int):
+    """Calculate real differential RF metrics between two historical sessions."""
+    res = DatabaseManager.compare_sessions(id1, id2)
+    if "error" in res:
+        raise HTTPException(status_code=404, detail=res["error"])
+    return res
+
+@app.get("/api/sessions/compare/csv")
+async def export_sessions_compare_csv(id1: int, id2: int):
+    """Export differential comparison analysis between two audit sessions in CSV."""
+    res = DatabaseManager.compare_sessions(id1, id2)
+    if "error" in res:
+        raise HTTPException(status_code=404, detail=res["error"])
+    lines = ["channel,band,ap_count_ses1,max_rssi_ses1,avg_rssi_ses1,ap_count_ses2,max_rssi_ses2,avg_rssi_ses2,delta_rssi,delta_aps"]
+    for d in res.get("deltas", []):
+        lines.append(f"{d['channel']},{d['band']},{d['ap_count_1']},{d['max_rssi_1']},{d['avg_rssi_1']},{d['ap_count_2']},{d['max_rssi_2']},{d['avg_rssi_2']},{d['delta_rssi']},{d['delta_aps']}")
+    csv_content = "\n".join(lines)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=diff_session_{id1}_vs_{id2}.csv"}
+    )
 
 @app.get("/api/session/{session_id}/export/csv")
 async def export_session_csv(session_id: int):
@@ -543,7 +614,6 @@ async def export_session_csv(session_id: int):
     for s in samples:
         lines.append(f"{s.get('id')},{s.get('timestamp')},{s.get('bssid')},\"{s.get('ssid','')}\",{s.get('channel')},{s.get('band')},{s.get('rssi')},{s.get('signal_quality')},{s.get('security')},{s.get('channel_width')},\"{s.get('vendor','')}\"")
     csv_content = "\n".join(lines)
-    from fastapi.responses import Response
     return Response(
         content=csv_content,
         media_type="text/csv",
@@ -552,19 +622,45 @@ async def export_session_csv(session_id: int):
 
 @app.get("/api/export/pcap")
 async def export_pcap_dump():
-    raw_payload = {
-        "export_type": "AeroScan-RF-Frames-Dump",
-        "timestamp": datetime.utcnow().isoformat(),
-        "engine_type": state.engine_type,
-        "selected_adapter": state.selected_adapter,
-        "total_frames": len(state.latest_aps),
-        "frames": [ap.to_dict() for ap in state.latest_aps]
-    }
-    from fastapi.responses import Response
+    """Download standard IEEE 802.11 binary PCAP file compatible directly with Wireshark."""
+    samples = []
+    if state.current_session_id:
+        samples = DatabaseManager.get_session_samples(state.current_session_id, limit=2000)
+    if not samples and state.latest_aps:
+        samples = [ap.to_dict() for ap in state.latest_aps]
+
+    pcap_bytes = build_binary_pcap(samples)
+    filename = f"aeroscan_capture_session_{state.current_session_id or 'live'}_{int(time.time())}.pcap"
     return Response(
-        content=json.dumps(raw_payload, indent=2, ensure_ascii=False),
+        content=pcap_bytes,
+        media_type="application/vnd.tcpdump.pcap",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+@app.get("/api/export/json")
+async def export_json_dump():
+    """Exports structured frames dump in JSON format."""
+    samples = []
+    if state.current_session_id:
+        samples = DatabaseManager.get_session_samples(state.current_session_id, limit=5000)
+    if not samples and state.latest_aps:
+        samples = [ap.to_dict() for ap in state.latest_aps]
+
+    export_payload = {
+        "format": "AeroScan-RF-Dump-v1",
+        "timestamp": time.time(),
+        "session_id": state.current_session_id,
+        "engine": state.engine_type,
+        "adapter": state.selected_adapter,
+        "total_records": len(samples),
+        "frames": samples
+    }
+    json_bytes = json.dumps(export_payload, indent=2, ensure_ascii=False).encode("utf-8")
+    filename = f"aeroscan_dump_session_{state.current_session_id or 'live'}_{int(time.time())}.json"
+    return Response(
+        content=json_bytes,
         media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=aeroscan_rf_capture_dump.json"}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 @app.get("/api/metrics/current")
@@ -573,7 +669,7 @@ async def get_current_metrics():
         state.latest_aps = state.engine.scan_once()
         state.latest_metrics = SpectrumAnalyzer.compute_channel_metrics(state.latest_aps)
 
-    recs = SpectrumOptimizer.generate_recommendations(state.latest_metrics)
+    recs = SpectrumOptimizer.generate_recommendations(state.latest_metrics, ap_list=state.latest_aps)
     return {
         "metrics": state.latest_metrics,
         "recommendations": recs,
@@ -588,8 +684,57 @@ async def get_sessions_history():
 async def get_session_samples(session_id: int):
     return DatabaseManager.get_session_samples(session_id)
 
-@app.post("/api/reports/pdf")
-async def generate_pdf_report():
+@app.delete("/api/session/{session_id}")
+async def delete_session(session_id: int):
+    """Permanently delete an audit session and its captured samples from SQLite."""
+    ok = DatabaseManager.delete_session(session_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+    if state.current_session_id == session_id:
+        state.current_session_id = None
+        state.session_start_time = None
+    return {"status": "deleted", "session_id": session_id}
+
+@app.post("/api/system/db/vacuum")
+async def vacuum_database_endpoint():
+    """Execute VACUUM on SQLite database to compact file and optimize page indexes."""
+    res = DatabaseManager.vacuum_database()
+    return res
+
+def _prepare_session_report_data(session_id: Optional[int] = None):
+    if session_id:
+        sess = DatabaseManager.get_session(session_id)
+        if not sess:
+            raise HTTPException(status_code=404, detail="Sesión no encontrada")
+        samples = DatabaseManager.get_session_samples(session_id, limit=5000)
+        unique_aps: Dict[str, Dict[str, Any]] = {}
+        for s in samples:
+            bssid = s.get("bssid")
+            if not bssid:
+                continue
+            if bssid not in unique_aps or s.get("rssi", -100) > unique_aps[bssid].get("rssi", -100):
+                unique_aps[bssid] = s
+
+        ap_instances = []
+        for s in unique_aps.values():
+            ch = int(s.get("channel", 1))
+            ap_instances.append(ScannedAP(
+                bssid=s.get("bssid", "00:00:00:00:00:00"),
+                ssid=s.get("ssid", "") or "<Oculta>",
+                channel=ch,
+                frequency_mhz=int(s.get("frequency_mhz") or channel_to_frequency(ch)),
+                band=s.get("band", "2.4GHz" if ch <= 14 else "5GHz"),
+                rssi=int(s.get("rssi", -80)),
+                signal_quality=int(s.get("signal_quality", 50)),
+                security=s.get("security", "WPA2"),
+                channel_width=int(s.get("channel_width", 20)),
+                vendor=s.get("vendor", "Desconocido")
+            ))
+        metrics = SpectrumAnalyzer.compute_channel_metrics(ap_instances)
+        recs = SpectrumOptimizer.generate_recommendations(metrics, ap_list=ap_instances)
+        ap_dicts = [ap.to_dict() for ap in ap_instances]
+        return sess, metrics, recs, ap_dicts
+
     if not state.latest_aps and state.engine:
         state.latest_aps = state.engine.scan_once()
         state.latest_metrics = SpectrumAnalyzer.compute_channel_metrics(state.latest_aps)
@@ -600,43 +745,33 @@ async def generate_pdf_report():
         "location": "Sede Central",
         "engine_type": state.engine_type
     }
-    recs = SpectrumOptimizer.generate_recommendations(state.latest_metrics)
+    recs = SpectrumOptimizer.generate_recommendations(state.latest_metrics, ap_list=state.latest_aps)
     ap_dicts = [ap.to_dict() for ap in state.latest_aps]
+    return sess, state.latest_metrics, recs, ap_dicts
 
+@app.post("/api/reports/pdf")
+async def generate_pdf_report(session_id: Optional[int] = None):
+    sess, metrics, recs, ap_dicts = _prepare_session_report_data(session_id)
     pdf_path = PDFReportGenerator.generate(
         session_data=sess,
-        analysis=state.latest_metrics,
+        analysis=metrics,
         recommendations=recs,
         ap_list=ap_dicts
     )
-
     return {
         "filename": pdf_path.name,
         "download_url": f"/api/reports/download/{pdf_path.name}"
     }
 
 @app.post("/api/reports/excel")
-async def generate_excel_report():
-    if not state.latest_aps and state.engine:
-        state.latest_aps = state.engine.scan_once()
-        state.latest_metrics = SpectrumAnalyzer.compute_channel_metrics(state.latest_aps)
-
-    sess = DatabaseManager.get_session(state.current_session_id or 1) or {
-        "id": 1,
-        "name": "Auditoría en Tiempo Real",
-        "location": "Sede Central",
-        "engine_type": state.engine_type
-    }
-    recs = SpectrumOptimizer.generate_recommendations(state.latest_metrics)
-    ap_dicts = [ap.to_dict() for ap in state.latest_aps]
-
+async def generate_excel_report(session_id: Optional[int] = None):
+    sess, metrics, recs, ap_dicts = _prepare_session_report_data(session_id)
     excel_path = ExcelReportExporter.export(
         session_data=sess,
-        analysis=state.latest_metrics,
+        analysis=metrics,
         recommendations=recs,
         ap_list=ap_dicts
     )
-
     return {
         "filename": excel_path.name,
         "download_url": f"/api/reports/download/{excel_path.name}"
@@ -674,7 +809,7 @@ async def websocket_spectrum(websocket: WebSocket):
                 "adapters": adapters,
                 "selected_adapter": getattr(state.engine, "selected_adapter", state.selected_adapter) if state.engine else state.selected_adapter,
                 "metrics": state.latest_metrics,
-                "recommendations": SpectrumOptimizer.generate_recommendations(state.latest_metrics),
+                "recommendations": SpectrumOptimizer.generate_recommendations(state.latest_metrics, ap_list=state.latest_aps),
                 "access_points": [ap.to_dict() for ap in state.latest_aps]
             }
             await websocket.send_text(json.dumps(payload))
