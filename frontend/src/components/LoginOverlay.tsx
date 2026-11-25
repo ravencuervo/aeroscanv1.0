@@ -29,41 +29,17 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
         const data = await res.json();
         localStorage.setItem('aeroscan_token', data.token);
         onLoginSuccess(data.user, data.token);
-      } else if (res.status === 502 || res.status === 504) {
-        // Backend no iniciado en puerto 8765
-        const u = username.trim().toLowerCase();
-        if ((u === 'admin' && password === 'admin123') || (u === 'auditor' && password === 'aeroscan2026')) {
-          const fallbackUser: User = {
-            id: 1,
-            username: u,
-            full_name: 'Operador de Espectro',
-            role: 'operador',
-          };
-          const fallbackToken = 'dev_offline_token_' + Date.now();
-          localStorage.setItem('aeroscan_token', fallbackToken);
-          onLoginSuccess(fallbackUser, fallbackToken);
-        } else {
-          setError('Backend Python apagado (502 Bad Gateway). Ejecuta "python run.py" en la terminal o usa las credenciales (admin / admin123).');
-        }
+      } else if (res.status === 401) {
+        setError('Usuario o contraseña incorrectos.');
+      } else if (res.status >= 500) {
+        setError('No se pudo conectar con el núcleo de AeroScan. Cierra el programa y vuelve a abrirlo.');
       } else {
         const errData = await res.json().catch(() => ({}));
-        setError(errData.detail || 'Usuario o contraseña incorrectos');
+        setError(errData.detail || 'No se pudo iniciar sesión. Inténtalo de nuevo.');
       }
-    } catch (err: any) {
-      const u = username.trim().toLowerCase();
-      if ((u === 'admin' && password === 'admin123') || (u === 'auditor' && password === 'aeroscan2026')) {
-        const fallbackUser: User = {
-          id: 1,
-          username: u,
-          full_name: 'Operador de Espectro',
-          role: 'operador',
-        };
-        const fallbackToken = 'dev_offline_token_' + Date.now();
-        localStorage.setItem('aeroscan_token', fallbackToken);
-        onLoginSuccess(fallbackUser, fallbackToken);
-      } else {
-        setError('Error al conectar con la base de datos. Asegúrate de ejecutar "python run.py" para iniciar el backend.');
-      }
+    } catch {
+      // Sin respuesta del servidor local: nunca se deja entrar sin validar la contraseña
+      setError('No se pudo conectar con el núcleo de AeroScan. Cierra el programa y vuelve a abrirlo.');
     } finally {
       setLoading(false);
     }
@@ -89,70 +65,13 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
               />
             </div>
             <div className="login-titles">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2>AeroScan</h2>
-                <span
-                  style={{
-                    fontSize: '0.62rem',
-                    fontFamily: 'var(--font-mono)',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                    border: '1px solid #38bdf8',
-                    color: '#7dd3fc',
-                    fontWeight: 800,
-                  }}
-                >
-                  v1.0.0
-                </span>
-              </div>
-              <p>Auditoría Espectral • FIEI UNA Puno</p>
+              <h2>AeroScan</h2>
+              <p>Auditoría espectral WiFi</p>
             </div>
           </div>
 
           <div className="login-welcome-text">
-            <h3>Iniciar Sesión</h3>
-          </div>
-
-          {/* Quick Credential Hint */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              marginBottom: '16px',
-              fontSize: '0.74rem',
-              color: '#94a3b8',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <i className="bi bi-info-circle-fill" style={{ color: '#38bdf8' }}></i>
-              <span>Operador: <strong style={{ color: '#e2e8f0' }}>admin</strong> / <strong style={{ color: '#e2e8f0' }}>admin123</strong></span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setUsername('admin');
-                setPassword('admin123');
-              }}
-              style={{
-                background: 'rgba(56, 189, 248, 0.15)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
-                color: '#38bdf8',
-                borderRadius: '4px',
-                padding: '2px 8px',
-                fontSize: '0.68rem',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-              title="Autocompletar credenciales por defecto"
-            >
-              Autocompletar
-            </button>
+            <h3>Iniciar sesión</h3>
           </div>
 
           {error && (
@@ -195,11 +114,11 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
             <button type="submit" className="login-btn" disabled={loading}>
               {loading ? (
                 <>
-                  <i className="bi bi-arrow-repeat spin"></i> Verificando Acceso...
+                  <i className="bi bi-arrow-repeat spin"></i> Verificando...
                 </>
               ) : (
                 <>
-                  <i className="bi bi-box-arrow-in-right"></i> Ingresar al Sistema
+                  <i className="bi bi-box-arrow-in-right"></i> Ingresar
                 </>
               )}
             </button>
@@ -215,22 +134,27 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
               type="button"
               className="login-register-btn"
               onClick={async () => {
-                const registerUrl = 'https://aeroscan.unap.edu.pe/registro';
+                // La dirección de registro la define el backend (página web del proyecto)
+                let registerUrl = '';
                 try {
-                  await fetch('/api/system/open-browser', {
+                  const r = await fetch('/api/auth/register-url');
+                  registerUrl = (await r.json()).url;
+                  // Dentro de la ventana de escritorio, el backend abre el navegador del sistema
+                  const res = await fetch('/api/system/open-browser', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url: registerUrl }),
                   });
+                  if (res.ok) return;
                 } catch {
-                  // Ignore backend fetch error in offline/standalone client
+                  // Si el núcleo no responde, se intenta abrir desde la propia interfaz
                 }
-                window.open(registerUrl, '_blank', 'noopener,noreferrer');
+                if (registerUrl) window.open(registerUrl, '_blank', 'noopener,noreferrer');
               }}
               title="Abrir formulario de registro en el navegador"
             >
               <i className="bi bi-person-plus-fill"></i>
-              <span>Registrarse / Solicitar Licencia</span>
+              <span>Registrarse o solicitar licencia</span>
               <i className="bi bi-box-arrow-up-right login-external-icon"></i>
             </button>
           </div>
