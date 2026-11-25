@@ -241,7 +241,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               }}
             >
               <div>
-                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#ab85d9', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <i className="bi bi-ubuntu"></i>
                   Extensión WSL2 Modo Monitor
                 </span>
@@ -253,7 +253,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               <button
                 type="button"
                 className="btn-tactical-stop"
-                style={{ padding: '6px 12px', fontSize: '0.68rem', backgroundColor: '#0284c7', borderColor: '#38bdf8', whiteSpace: 'nowrap' }}
+                style={{ padding: '6px 12px', fontSize: '0.68rem', backgroundColor: '#6f489a', borderColor: '#ab85d9', whiteSpace: 'nowrap' }}
                 onClick={() => setShowWslModal(true)}
               >
                 ASISTENTE WSL2
@@ -444,7 +444,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Versión del Software:</span>
-                <span style={{ color: '#38bdf8', fontWeight: 700 }}>AeroScan v{systemInfo?.app_version || '1.0.0'} (Build {systemInfo?.app_build || '2026.11'})</span>
+                <span style={{ color: '#ab85d9', fontWeight: 700 }}>AeroScan v{systemInfo?.app_version || '1.0.0'} (Build {systemInfo?.app_build || '2026.11'})</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Institución / Facultad:</span>
@@ -460,7 +460,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Archivo de Base de Datos:</span>
-                <span style={{ color: '#38bdf8' }}>scan.db (Modo WAL)</span>
+                <span style={{ color: '#ab85d9' }}>scan.db (Modo WAL)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Tamaño en Disco:</span>
@@ -499,7 +499,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </button>
             </div>
             {vacuumMessage && (
-              <span style={{ fontSize: '0.7rem', color: '#38bdf8', marginTop: '6px', display: 'block' }}>
+              <span style={{ fontSize: '0.7rem', color: '#ab85d9', marginTop: '6px', display: 'block' }}>
                 <i className="bi bi-info-circle" style={{ marginRight: '4px' }}></i>
                 {vacuumMessage}
               </span>

@@ -311,16 +311,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 bar.count === 0
                   ? 'rgba(255, 255, 255, 0.08)'
                   : bar.isCritical
-                  ? 'linear-gradient(180deg, #ef4444, #b91c1c)'
+                  ? '#ef4444'
                   : bar.isModerate
-                  ? 'linear-gradient(180deg, #f59e0b, #d97706)'
-                  : 'linear-gradient(180deg, #06b6d4, #0891b2)';
+                  ? '#f59e0b'
+                  : '#865db1';
 
               const barShadow =
                 bar.isCritical
                   ? '0 0 12px rgba(239, 68, 68, 0.4)'
                   : bar.count > 0
-                  ? '0 0 8px rgba(6, 182, 212, 0.3)'
+                  ? '0 0 8px rgba(134, 93, 177, 0.3)'
                   : 'none';
 
               return (

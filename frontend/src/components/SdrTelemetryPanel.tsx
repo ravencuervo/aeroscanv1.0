@@ -107,7 +107,7 @@ export const SdrTelemetryPanel: React.FC<SdrTelemetryPanelProps> = ({
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, color: 'var(--color6)', fontSize: '0.82rem' }}>
-                      <i className="bi bi-wifi" style={{ marginRight: '6px', color: '#38bdf8' }}></i>
+                      <i className="bi bi-wifi" style={{ marginRight: '6px', color: '#ab85d9' }}></i>
                       {ad.name}
                     </span>
                     <span
@@ -116,9 +116,9 @@ export const SdrTelemetryPanel: React.FC<SdrTelemetryPanelProps> = ({
                         fontFamily: 'var(--font-mono)',
                         padding: '2px 7px',
                         borderRadius: '4px',
-                        backgroundColor: ad.status === 'connected' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                        border: `1px solid ${ad.status === 'connected' ? '#10b981' : '#38bdf8'}`,
-                        color: ad.status === 'connected' ? '#6ee7b7' : '#7dd3fc',
+                        backgroundColor: ad.status === 'connected' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(171, 133, 217, 0.15)',
+                        border: `1px solid ${ad.status === 'connected' ? '#10b981' : '#ab85d9'}`,
+                        color: ad.status === 'connected' ? '#10b981' : '#d5c4ec',
                         fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
@@ -130,21 +130,21 @@ export const SdrTelemetryPanel: React.FC<SdrTelemetryPanelProps> = ({
                           width: '5px',
                           height: '5px',
                           borderRadius: '50%',
-                          backgroundColor: ad.status === 'connected' ? '#10b981' : '#38bdf8',
+                          backgroundColor: ad.status === 'connected' ? '#10b981' : '#ab85d9',
                         }}
                       ></span>
                       {ad.status === 'connected' ? 'CONECTADO' : 'MODO ESCANEO'}
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '0.73rem', color: '#e2e8f0', marginTop: '4px', fontWeight: 500 }}>
+                  <div style={{ fontSize: '0.73rem', color: '#ffffff', marginTop: '4px', fontWeight: 500 }}>
                     {ad.description}
                   </div>
 
                   <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: '3px' }}>
                     MAC: {ad.mac_address || 'N/A'}{' '}
                     {ad.connected_ssid && (
-                      <span style={{ color: '#38bdf8' }}>
+                      <span style={{ color: '#ab85d9' }}>
                         • SSID: {ad.connected_ssid} (Ch {ad.current_channel || '?'})
                       </span>
                     )}
@@ -169,7 +169,7 @@ export const SdrTelemetryPanel: React.FC<SdrTelemetryPanelProps> = ({
         <div className="tolerances-list">
           {/* Multi-sensor mode */}
           <div className="tolerance-item">
-            <div className="tolerance-icon-wrap" style={{ color: '#38bdf8' }}>
+            <div className="tolerance-icon-wrap" style={{ color: '#ab85d9' }}>
               <i className="bi bi-check2"></i>
             </div>
             <div className="tolerance-content">
@@ -215,7 +215,7 @@ export const SdrTelemetryPanel: React.FC<SdrTelemetryPanelProps> = ({
       {/* 3. Captura instantánea FFT */}
       <div className="snapshot-card">
         <div className="snapshot-title">
-          <i className="bi bi-camera-fill" style={{ color: '#38bdf8' }}></i>
+          <i className="bi bi-camera-fill" style={{ color: '#ab85d9' }}></i>
           <span>Captura instantánea FFT</span>
         </div>
         <button

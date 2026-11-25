@@ -220,12 +220,12 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
         ctx.lineTo(w - padRight, y);
         ctx.stroke();
 
-        ctx.fillStyle = lvl === -85 ? '#fca5a5' : '#9c80bd';
+        ctx.fillStyle = lvl === -85 ? '#ef4444' : '#9c80bd';
         ctx.fillText(formatPwr(lvl), padLeft - 6 * dpr, y + 3 * dpr);
       });
 
       // Noise floor text
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = '#9c80bd';
       ctx.textAlign = 'right';
       const noiseText = isMw ? 'RUIDO DE PISO ~0.3 pW (-95 dBm)' : 'RUIDO DE PISO -95 dBm';
       ctx.fillText(noiseText, w - padRight, padTop + plotH - 6 * dpr);
@@ -326,8 +326,8 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
         }
 
         if (st.opacity > 0.01) {
-          let strokeColor = '#06b6d4';
-          let fillColor = 'rgba(6, 182, 212, 0.2)';
+          let strokeColor = '#865db1';
+          let fillColor = 'rgba(134, 93, 177, 0.2)';
           if (st.count > 3) {
             strokeColor = '#ef4444';
             fillColor = 'rgba(239, 68, 68, 0.28)';
@@ -356,7 +356,7 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
           ctx.fillText(isStandard ? `CH ${ch}` : `${ch}`, x, h - padBottom + 14 * dpr);
 
           if (isStandard) {
-            ctx.fillStyle = '#64748b';
+            ctx.fillStyle = '#9c80bd';
             ctx.font = `${6.5 * dpr}px 'JetBrains Mono', monospace`;
             const freq = ch === 1 ? '2412 MHz' : ch === 6 ? '2437 MHz' : '2462 MHz';
             ctx.fillText(freq, x, h - padBottom + 25 * dpr);
@@ -408,14 +408,14 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
         const p1y = m.currentY;
 
         ctx.fillStyle = '#1e053e';
-        ctx.strokeStyle = '#06b6d4';
+        ctx.strokeStyle = '#865db1';
         ctx.lineWidth = 1.2 * dpr;
         ctx.beginPath();
         ctx.roundRect(p1x - 70 * dpr, p1y - 48 * dpr, 140 * dpr, 42 * dpr, 4 * dpr);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#06b6d4';
+        ctx.fillStyle = '#865db1';
         ctx.font = `bold ${8 * dpr}px 'JetBrains Mono', monospace`;
         ctx.textAlign = 'left';
         ctx.fillText(`● ${m.ssid}`, p1x - 64 * dpr, p1y - 34 * dpr);
@@ -527,7 +527,7 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
             </div>
 
             <div className="ca-legend-items">
-              <span className="leg-dot" style={{ backgroundColor: '#06b6d4' }}></span>
+              <span className="leg-dot" style={{ backgroundColor: '#865db1' }}></span>
               <span>Canal Limpio (1 AP)</span>
               <span className="leg-dot" style={{ backgroundColor: '#865db1' }}></span>
               <span>Moderado (2-3 APs)</span>
@@ -594,7 +594,7 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
           <div className="ca-impact-body">
             <div className="ca-impact-row">
               <span>Throughput Proyectado Canal {congestedChannel}:</span>
-              <span style={{ fontWeight: 700, color: maxApCount > 3 ? '#f87171' : 'var(--color6)' }}>
+              <span style={{ fontWeight: 700, color: maxApCount > 3 ? '#ef4444' : 'var(--color6)' }}>
                 {maxApCount > 3 ? `-${(maxApCount * 8.5).toFixed(1)}% vs Teórico` : 'Óptimo (Baja contienda)'}
               </span>
             </div>
@@ -657,7 +657,7 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
                 style={{
                   backgroundColor: 'rgba(16, 185, 129, 0.2)',
                   border: '1px solid #10b981',
-                  color: '#34d399',
+                  color: '#10b981',
                   fontSize: '0.72rem',
                   padding: '6px 10px',
                   borderRadius: '4px',
@@ -731,7 +731,7 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color3)', paddingBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'linear-gradient(135deg, #0284c7, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#6f489a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="bi bi-shield-check" style={{ color: '#fff', fontSize: '1.2rem' }}></i>
                 </div>
                 <div>
@@ -755,17 +755,17 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', backgroundColor: 'var(--color1)', padding: '14px', borderRadius: '8px', border: '1px solid var(--color3)' }}>
               <div>
                 <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', textTransform: 'uppercase', display: 'block' }}>Canal Objetivo</span>
-                <strong style={{ fontSize: '1.15rem', color: '#38bdf8' }}>Canal {suggestedChannel}</strong>
+                <strong style={{ fontSize: '1.15rem', color: '#ab85d9' }}>Canal {suggestedChannel}</strong>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block' }}>{selectedBand === '2.4ghz' ? 'Banda 2.4 GHz' : 'Banda 5 GHz UNII'}</span>
               </div>
               <div>
                 <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', textTransform: 'uppercase', display: 'block' }}>Ancho de Canal (BW)</span>
-                <strong style={{ fontSize: '1.15rem', color: '#34d399' }}>{selectedBand === '2.4ghz' ? '20 MHz' : '40 / 80 MHz'}</strong>
+                <strong style={{ fontSize: '1.15rem', color: '#10b981' }}>{selectedBand === '2.4ghz' ? '20 MHz' : '40 / 80 MHz'}</strong>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block' }}>{selectedBand === '2.4ghz' ? 'Máscara no solapada' : 'Agregación limpia'}</span>
               </div>
               <div>
                 <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', textTransform: 'uppercase', display: 'block' }}>Salud Espectral</span>
-                <strong style={{ fontSize: '1.15rem', color: '#fbbf24' }}>{suggestedScore}/100</strong>
+                <strong style={{ fontSize: '1.15rem', color: '#f59e0b' }}>{suggestedScore}/100</strong>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block' }}>Mínima contienda CSMA/CA</span>
               </div>
             </div>
@@ -787,9 +787,9 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
                         fontFamily: 'var(--font-mono)',
                         borderRadius: '4px',
                         border: '1px solid',
-                        borderColor: routerType === r ? '#06b6d4' : 'var(--color3)',
-                        backgroundColor: routerType === r ? 'rgba(6, 182, 212, 0.2)' : 'var(--color1)',
-                        color: routerType === r ? '#38bdf8' : 'var(--text-muted)',
+                        borderColor: routerType === r ? '#865db1' : 'var(--color3)',
+                        backgroundColor: routerType === r ? 'rgba(134, 93, 177, 0.2)' : 'var(--color1)',
+                        color: routerType === r ? '#ab85d9' : 'var(--text-muted)',
                         cursor: 'pointer',
                         textTransform: 'uppercase',
                         fontWeight: 700,
@@ -810,7 +810,7 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
                   border: '1px solid rgba(88, 51, 131, 0.5)',
                   fontFamily: 'var(--font-mono)',
                   fontSize: '0.75rem',
-                  color: '#e2e8f0',
+                  color: '#ffffff',
                   lineHeight: '1.5',
                   position: 'relative',
                   whiteSpace: 'pre-wrap',
@@ -905,15 +905,15 @@ export const ChannelAnalysisView: React.FC<ChannelAnalysisViewProps> = ({ access
                     alignItems: 'center',
                     gap: '6px',
                     padding: '7px 16px',
-                    backgroundColor: '#0284c7',
-                    border: '1px solid #38bdf8',
+                    backgroundColor: '#6f489a',
+                    border: '1px solid #ab85d9',
                     borderRadius: '6px',
                     color: '#ffffff',
                     fontSize: '0.74rem',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    boxShadow: '0 0 10px rgba(6, 182, 212, 0.4)',
+                    boxShadow: '0 0 10px rgba(134, 93, 177, 0.4)',
                   }}
                 >
                   <i className="bi bi-check2-circle"></i>

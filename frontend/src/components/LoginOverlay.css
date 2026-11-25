@@ -48,7 +48,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--color5), var(--color4));
+  background: var(--color5);
 }
 
 .login-content-box {
@@ -117,7 +117,7 @@
 .login-error {
   background-color: rgba(88, 51, 131, 0.35);
   border: 1px solid var(--color5);
-  color: #ffccd5;
+  color: #ef4444;
   border-radius: var(--radius-sm);
   padding: 10px 14px;
   font-size: 0.82rem;

@@ -196,9 +196,9 @@
 }
 
 .adapter-card-item.selected {
-  border-color: #38bdf8;
-  background-color: rgba(56, 189, 248, 0.08);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.18);
+  border-color: #ab85d9;
+  background-color: rgba(171, 133, 217, 0.08);
+  box-shadow: 0 0 10px rgba(171, 133, 217, 0.18);
 }
 
 .pulse-dot {

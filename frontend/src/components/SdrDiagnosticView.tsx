@@ -62,7 +62,7 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             className="btn-tactical-stop"
-            style={{ padding: '8px 16px', fontSize: '0.74rem', backgroundColor: '#0284c7', borderColor: '#38bdf8', color: '#ffffff', boxShadow: '0 0 10px rgba(6, 182, 212, 0.4)' }}
+            style={{ padding: '8px 16px', fontSize: '0.74rem', backgroundColor: '#6f489a', borderColor: '#ab85d9', color: '#ffffff', boxShadow: '0 0 10px rgba(134, 93, 177, 0.4)' }}
             onClick={() => setShowWslModal(true)}
             title="Abrir asistente de configuración de Modo Monitor Promiscuo con WSL2 y Scapy"
           >
@@ -85,7 +85,7 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
       <div className="sdr-diag-kpis">
         <div className="sdr-kpi-box">
           <span className="sdr-kpi-lbl">MÓDULOS ACTIVOS</span>
-          <span className="sdr-kpi-val" style={{ color: '#38bdf8' }}>
+          <span className="sdr-kpi-val" style={{ color: '#ab85d9' }}>
             {adapters.length} {adapters.length === 1 ? 'MÓDULO' : 'MÓDULOS'}
           </span>
           <span className="sdr-kpi-sub">
@@ -95,7 +95,7 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
 
         <div className="sdr-kpi-box">
           <span className="sdr-kpi-lbl">LATENCIA DE CAPTURA</span>
-          <span className="sdr-kpi-val" style={{ color: '#34d399' }}>
+          <span className="sdr-kpi-val" style={{ color: '#10b981' }}>
             {latencyMs.toFixed(1)} ms
           </span>
           <span className="sdr-kpi-sub">Jitter de sondeo: ± {jitterMs.toFixed(1)} ms</span>
@@ -113,7 +113,7 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
 
         <div className="sdr-kpi-box">
           <span className="sdr-kpi-lbl">BSSIDS SINCRONIZADOS</span>
-          <span className="sdr-kpi-val" style={{ color: '#fbbf24' }}>
+          <span className="sdr-kpi-val" style={{ color: '#f59e0b' }}>
             {accessPoints.length} APs
           </span>
           <span className="sdr-kpi-sub">Recepción directa en memoria</span>
@@ -124,19 +124,19 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
       <div
         style={{
           backgroundColor: 'var(--color1)',
-          border: '1px solid rgba(56, 189, 248, 0.35)',
+          border: '1px solid rgba(171, 133, 217, 0.35)',
           borderRadius: '8px',
           padding: '14px 18px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: '16px',
-          background: 'linear-gradient(90deg, rgba(2, 132, 199, 0.12), rgba(88, 51, 131, 0.2))',
+          background: 'rgba(111, 72, 154, 0.12)',
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <i className="bi bi-shield-lock-fill" style={{ fontSize: '1.5rem', color: '#38bdf8' }}></i>
+          <i className="bi bi-shield-lock-fill" style={{ fontSize: '1.5rem', color: '#ab85d9' }}></i>
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--color6)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>Extensión de Modo Monitor Promiscuo (WSL2 + Scapy)</span>
@@ -145,9 +145,9 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
                   fontSize: '0.62rem',
                   padding: '2px 6px',
                   borderRadius: '4px',
-                  backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                  color: '#38bdf8',
-                  border: '1px solid #38bdf8',
+                  backgroundColor: 'rgba(171, 133, 217, 0.2)',
+                  color: '#ab85d9',
+                  border: '1px solid #ab85d9',
                   fontWeight: 700,
                   fontFamily: 'var(--font-mono)',
                 }}
@@ -168,14 +168,14 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
             alignItems: 'center',
             gap: '6px',
             padding: '8px 16px',
-            backgroundColor: '#0284c7',
-            border: '1px solid #38bdf8',
+            backgroundColor: '#6f489a',
+            border: '1px solid #ab85d9',
             borderRadius: '6px',
             color: '#ffffff',
             fontSize: '0.74rem',
             fontWeight: 800,
             cursor: 'pointer',
-            boxShadow: '0 0 10px rgba(6, 182, 212, 0.4)',
+            boxShadow: '0 0 10px rgba(134, 93, 177, 0.4)',
             whiteSpace: 'nowrap',
           }}
         >
@@ -220,7 +220,7 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
                       borderRadius: '4px',
                       backgroundColor: 'rgba(16, 185, 129, 0.15)',
                       border: '1px solid #10b981',
-                      color: '#34d399',
+                      color: '#10b981',
                       fontWeight: 700,
                     }}
                   >
@@ -245,8 +245,8 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
                 >
                   <div>MAC Física: <strong style={{ color: 'var(--color6)' }}>{ad.mac_address || 'N/A'}</strong></div>
                   <div>Tipo de Radio: <strong style={{ color: 'var(--color6)' }}>{ad.radio_type || '802.11ax/ac/n'}</strong></div>
-                  <div>SSID Enlace: <strong style={{ color: '#38bdf8' }}>{ad.connected_ssid || 'Ninguno (Modo pasivo)'}</strong></div>
-                  <div>Canal Base: <strong style={{ color: '#38bdf8' }}>Ch {ad.current_channel || 'Auto'}</strong></div>
+                  <div>SSID Enlace: <strong style={{ color: '#ab85d9' }}>{ad.connected_ssid || 'Ninguno (Modo pasivo)'}</strong></div>
+                  <div>Canal Base: <strong style={{ color: '#ab85d9' }}>Ch {ad.current_channel || 'Auto'}</strong></div>
                 </div>
               </div>
             ))}
@@ -289,7 +289,7 @@ export const SdrDiagnosticView: React.FC<SdrDiagnosticViewProps> = ({
                     <td style={{ color: 'var(--color5)', fontWeight: 700 }}>
                       Ch {ap.channel}
                     </td>
-                    <td style={{ color: ap.rssi >= -65 ? '#10b981' : ap.rssi >= -75 ? '#38bdf8' : '#f59e0b' }}>
+                    <td style={{ color: ap.rssi >= -65 ? '#10b981' : ap.rssi >= -75 ? '#ab85d9' : '#f59e0b' }}>
                       {ap.rssi} dBm
                     </td>
                     <td style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>

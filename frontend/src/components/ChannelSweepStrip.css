@@ -94,8 +94,8 @@
 }
 
 .channel-cell.active-channel {
-  border: 2px solid #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+  border: 2px solid #ab85d9;
+  box-shadow: 0 0 12px rgba(171, 133, 217, 0.35);
   background-color: rgba(64, 29, 107, 0.6);
 }
 
@@ -104,7 +104,7 @@
   top: -8px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: #38bdf8;
+  background-color: #ab85d9;
   color: #02031a;
   font-size: 0.55rem;
   font-family: var(--font-mono);
@@ -148,7 +148,7 @@
   font-size: 0.7rem;
   font-weight: 700;
   font-family: var(--font-mono);
-  color: #38bdf8;
+  color: #ab85d9;
   transition: color 0.3s ease;
 }
 

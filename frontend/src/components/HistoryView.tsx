@@ -45,7 +45,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             samplesCount: s.sample_count || s.samples_count || 0,
             uniqueAps: s.unique_aps || 0,
             status: s.status === 'completed' ? 'FINALIZADA' : 'ACTIVA',
-            color: s.status === 'completed' ? '#10b981' : '#38bdf8',
+            color: s.status === 'completed' ? '#10b981' : '#ab85d9',
           }));
           setRealSessions(mapped);
           if (mapped.length >= 2) {
@@ -93,7 +93,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             samplesCount: s.sample_count || s.samples_count || 0,
             uniqueAps: s.unique_aps || 0,
             status: s.status === 'completed' ? 'FINALIZADA' : 'ACTIVA',
-            color: s.status === 'completed' ? '#10b981' : '#38bdf8',
+            color: s.status === 'completed' ? '#10b981' : '#ab85d9',
           }));
           setRealSessions(remap);
           if (remap.length >= 2) {
@@ -289,7 +289,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
       });
 
       // Noise floor
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = '#9c80bd';
       ctx.textAlign = 'left';
       ctx.fillText('-90 (Noise Floor)', padLeft + 6 * dpr, padTop + plotH - 6 * dpr);
 
@@ -407,7 +407,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           }
           // Session 2 curve (Cyan dashed)
           if (d.ap_count_2 > 0) {
-            drawComparativeCurve(cxRatio, 0.16, d.max_rssi_2, '#06b6d4', 'rgba(6, 182, 212, 0.25)', true);
+            drawComparativeCurve(cxRatio, 0.16, d.max_rssi_2, '#865db1', 'rgba(134, 93, 177, 0.25)', true);
           }
         });
 
@@ -429,14 +429,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           const my = padTop + plotH * (1 - (targetDbm - -95) / 65);
 
           ctx.fillStyle = '#1e053e';
-          ctx.strokeStyle = maxDelta <= 0 ? '#10b981' : '#f87171';
+          ctx.strokeStyle = maxDelta <= 0 ? '#10b981' : '#ef4444';
           ctx.lineWidth = 1.2 * dpr;
           ctx.beginPath();
           ctx.roundRect(mx - 85 * dpr, my - 34 * dpr, 170 * dpr, 28 * dpr, 4 * dpr);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = maxDelta <= 0 ? '#34d399' : '#f87171';
+          ctx.fillStyle = maxDelta <= 0 ? '#10b981' : '#ef4444';
           ctx.font = `bold ${7.5 * dpr}px 'JetBrains Mono', monospace`;
           ctx.textAlign = 'center';
           ctx.fillText(`DELTA: ${maxDelta > 0 ? '+' : ''}${maxDelta} dBm (Ch ${maxCh})`, mx, my - 20 * dpr);
@@ -460,12 +460,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
       if (currentBand !== '6ghz') {
         activeTicks.forEach((c) => {
           const x = padLeft + plotW * c.r;
-          ctx.fillStyle = c.f ? '#38bdf8' : '#9c80bd';
+          ctx.fillStyle = c.f ? '#ab85d9' : '#9c80bd';
           ctx.font = `${7 * dpr}px 'JetBrains Mono', monospace`;
           ctx.textAlign = 'center';
           ctx.fillText(c.ch, x, h - padBottom + 14 * dpr);
           if (c.f) {
-            ctx.fillStyle = '#64748b';
+            ctx.fillStyle = '#9c80bd';
             ctx.font = `${6 * dpr}px 'JetBrains Mono', monospace`;
             ctx.fillText(c.f, x, h - padBottom + 24 * dpr);
           }
@@ -524,7 +524,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               cursor: 'pointer',
               border: congestionOnly ? '1px solid #f59e0b' : undefined,
               backgroundColor: congestionOnly ? 'rgba(245, 158, 11, 0.15)' : undefined,
-              color: congestionOnly ? '#fbbf24' : undefined,
+              color: congestionOnly ? '#f59e0b' : undefined,
             }}
             title="Alternar entre todos los canales o solo los que presentan congestión o variación"
           >
@@ -557,9 +557,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
       {compareMessage && (
         <div
           style={{
-            backgroundColor: 'rgba(6, 182, 212, 0.15)',
-            border: '1px solid #06b6d4',
-            color: '#38bdf8',
+            backgroundColor: 'rgba(134, 93, 177, 0.15)',
+            border: '1px solid #865db1',
+            color: '#ab85d9',
             fontSize: '0.74rem',
             padding: '10px 16px',
             borderRadius: '6px',
@@ -633,7 +633,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <div className="delta-metric-box">
               <div className="d-metric-top">
                 <span className="d-lbl">AUDITORÍAS COMPARADAS</span>
-                <span className="d-gain" style={{ color: '#38bdf8' }}>
+                <span className="d-gain" style={{ color: '#ab85d9' }}>
                   {comparisonData?.session_1?.id && comparisonData?.session_2?.id
                     ? `#SES-${comparisonData.session_1.id} ➔ #SES-${comparisonData.session_2.id}`
                     : selectedSessions.length >= 2
@@ -655,7 +655,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <div className="delta-metric-box">
               <div className="d-metric-top">
                 <span className="d-lbl">MAYOR VARIACIÓN (CANAL {comparisonData?.max_delta_channel || 6})</span>
-                <span className="d-gain" style={{ color: (comparisonData?.max_delta_rssi || 0) <= 0 ? '#34d399' : '#f87171' }}>
+                <span className="d-gain" style={{ color: (comparisonData?.max_delta_rssi || 0) <= 0 ? '#10b981' : '#ef4444' }}>
                   {comparisonData ? `${(comparisonData.max_delta_rssi || 0) > 0 ? '+' : ''}${comparisonData.max_delta_rssi || 0} dBm` : '-14 dBm'}
                 </span>
               </div>
@@ -673,7 +673,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <div className="delta-metric-box">
               <div className="d-metric-top">
                 <span className="d-lbl">CANALES ANALIZADOS</span>
-                <span className="d-gain" style={{ color: '#38bdf8' }}>
+                <span className="d-gain" style={{ color: '#ab85d9' }}>
                   {comparisonData?.deltas ? `${comparisonData.deltas.length} Canales` : '2.4G & 5G'}
                 </span>
               </div>
@@ -689,7 +689,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <div className="delta-metric-box">
               <div className="d-metric-top">
                 <span className="d-lbl">ESTADO DE MITIGACIÓN</span>
-                <span className="d-gain" style={{ color: '#34d399' }}>
+                <span className="d-gain" style={{ color: '#10b981' }}>
                   {comparisonData?.session_1 ? 'Cálculo Matemático OK' : 'Listo'}
                 </span>
               </div>
@@ -715,7 +715,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               style={{
                 backgroundColor: 'rgba(245, 158, 11, 0.15)',
                 borderColor: '#f59e0b',
-                color: '#fcd34d',
+                color: '#f59e0b',
                 padding: '4px 10px',
                 fontSize: '0.68rem',
                 fontWeight: 700,
@@ -788,9 +788,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                             fontFamily: 'var(--font-mono)',
                             padding: '2px 6px',
                             borderRadius: '4px',
-                            backgroundColor: ses.engineType === 'windows' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                            border: `1px solid ${ses.engineType === 'windows' ? '#10b981' : '#38bdf8'}`,
-                            color: ses.engineType === 'windows' ? '#34d399' : '#7dd3fc',
+                            backgroundColor: ses.engineType === 'windows' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(171, 133, 217, 0.15)',
+                            border: `1px solid ${ses.engineType === 'windows' ? '#10b981' : '#ab85d9'}`,
+                            color: ses.engineType === 'windows' ? '#10b981' : '#d5c4ec',
                             fontWeight: 700,
                             whiteSpace: 'nowrap',
                           }}
@@ -798,7 +798,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                           {ses.engineLabel}
                         </span>
                       </td>
-                      <td className="cell-ses-col cell-mono" style={{ color: '#38bdf8', fontWeight: 600 }}>
+                      <td className="cell-ses-col cell-mono" style={{ color: '#ab85d9', fontWeight: 600 }}>
                         {ses.samplesCount.toLocaleString()} tramas
                       </td>
                       <td className="cell-ses-col cell-mono" style={{ color: 'var(--color6)' }}>
@@ -828,7 +828,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                               handleExportCsv(ses.rawId);
                             }}
                             className="btn-ses-view"
-                            style={{ backgroundColor: 'rgba(6, 182, 212, 0.15)', borderColor: '#06b6d4', color: '#38bdf8', padding: '4px 7px' }}
+                            style={{ backgroundColor: 'rgba(134, 93, 177, 0.15)', borderColor: '#865db1', color: '#ab85d9', padding: '4px 7px' }}
                             title="Descargar muestras CSV de esta sesión"
                           >
                             <i className="bi bi-file-earmark-spreadsheet"></i>
@@ -839,7 +839,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                               handleExportSessionPdf(ses.rawId);
                             }}
                             className="btn-ses-view"
-                            style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: '#10b981', color: '#34d399', padding: '4px 7px' }}
+                            style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: '#10b981', color: '#10b981', padding: '4px 7px' }}
                             title="Generar dictamen técnico PDF de esta sesión"
                           >
                             <i className="bi bi-file-earmark-pdf"></i>
@@ -847,7 +847,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                           <button
                             onClick={(e) => handleDeleteSession(ses.rawId, e)}
                             className="btn-ses-view"
-                            style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444', color: '#fca5a5', padding: '4px 7px' }}
+                            style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444', color: '#ef4444', padding: '4px 7px' }}
                             title="Eliminar permanentemente esta sesión de SQLite"
                           >
                             <i className="bi bi-trash3"></i>
@@ -906,7 +906,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <i className="bi bi-hdd-network" style={{ color: '#06b6d4', fontSize: '1.2rem' }}></i>
+                <i className="bi bi-hdd-network" style={{ color: '#865db1', fontSize: '1.2rem' }}></i>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '0.95rem', color: '#fff' }}>
                     Detalle de Sesión: {detailSession.id}
@@ -941,16 +941,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                   marginBottom: '12px',
                 }}
               >
-                <span style={{ fontSize: '0.76rem', color: '#38bdf8', fontWeight: 600 }}>
+                <span style={{ fontSize: '0.76rem', color: '#ab85d9', fontWeight: 600 }}>
                   Muestras Capturadas en Hardware ({detailSamples.length} registros)
                 </span>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   onClick={() => handleExportCsv(detailSession.rawId)}
                   style={{
-                    backgroundColor: 'rgba(6, 182, 212, 0.2)',
-                    border: '1px solid #06b6d4',
-                    color: '#38bdf8',
+                    backgroundColor: 'rgba(134, 93, 177, 0.2)',
+                    border: '1px solid #865db1',
+                    color: '#ab85d9',
                     padding: '4px 10px',
                     borderRadius: '4px',
                     fontSize: '0.72rem',
@@ -968,7 +968,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                   style={{
                     backgroundColor: 'rgba(16, 185, 129, 0.2)',
                     border: '1px solid #10b981',
-                    color: '#34d399',
+                    color: '#10b981',
                     padding: '4px 10px',
                     borderRadius: '4px',
                     fontSize: '0.72rem',
@@ -1010,11 +1010,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                       <tr key={idx} style={{ borderBottom: '1px solid rgba(88, 51, 131, 0.2)' }}>
                         <td style={{ padding: '6px 8px', color: '#fff', fontWeight: 600 }}>{sample.ssid || '<Oculto>'}</td>
                         <td style={{ padding: '6px 8px', color: '#9c80bd', fontFamily: 'monospace' }}>{sample.bssid}</td>
-                        <td style={{ padding: '6px 8px', color: '#38bdf8' }}>Ch {sample.channel} ({sample.band || '2.4G'})</td>
+                        <td style={{ padding: '6px 8px', color: '#ab85d9' }}>Ch {sample.channel} ({sample.band || '2.4G'})</td>
                         <td style={{ padding: '6px 8px', color: sample.rssi >= -65 ? '#10b981' : sample.rssi >= -80 ? '#f59e0b' : '#ef4444', fontWeight: 700 }}>
                           {sample.rssi} dBm
                         </td>
-                        <td style={{ padding: '6px 8px', color: '#e2e8f0' }}>{sample.quality || sample.link_quality || Math.min(100, Math.max(0, 2 * (sample.rssi + 100)))}%</td>
+                        <td style={{ padding: '6px 8px', color: '#ffffff' }}>{sample.quality || sample.link_quality || Math.min(100, Math.max(0, 2 * (sample.rssi + 100)))}%</td>
                         <td style={{ padding: '6px 8px', color: '#9c80bd' }}>{sample.security || sample.auth || 'WPA2-PSK'}</td>
                       </tr>
                     ))}
@@ -1038,7 +1038,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                 style={{
                   backgroundColor: '#3d1b64',
                   border: '1px solid #583383',
-                  color: '#e2e8f0',
+                  color: '#ffffff',
                   padding: '6px 14px',
                   borderRadius: '4px',
                   fontSize: '0.74rem',
