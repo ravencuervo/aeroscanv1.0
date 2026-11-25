@@ -2,14 +2,22 @@
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
 /* ==========================================================================
-   AeroScan Tactical Spectrum Design System
-   User Palette:
-     .color1 { #290854 };  -- Deep midnight velvet (Base / Body)
-     .color2 { #401d6b };  -- Deep royal purple (Panels / Cards)
-     .color3 { #583383 };  -- Intermediate purple (Borders / Dividers)
-     .color4 { #6f489a };  -- Bright amethyst (Accents / Active tab / Hover)
-     .color5 { #865db1 };  -- Light purple / lilac (Primary CTA / Highlights)
-     .colo6  blanco;       -- Pure White #ffffff (Typography / High Contrast)
+   Sistema de diseño de AeroScan
+   Paleta monocromática morada (identidad del logo) + 3 colores de estado.
+   Regla: el morado da estructura; el color solo comunica significado.
+
+   Estructura (de oscuro a claro):
+     --color0 #1f0640  fondo profundo (pozos, tablas, gráficos)
+     --color1 #290854  fondo de la aplicación
+     --color2 #401d6b  paneles y tarjetas
+     --color3 #583383  bordes y divisores
+     --color4 #6f489a  hover y pestaña activa
+     --color5 #865db1  botón principal
+     --color6 #ffffff  texto principal
+   Acento interactivo: --accent #ab85d9 (enlaces, selección, foco)
+   Estados (solo para significado): --ok #34d399 · --warn #fbbf24 · --danger #f87171
+   Contraste (WCAG 2.1) sobre paneles: texto 13.1:1, --text-muted 8.1:1,
+   --text-dim 5.7:1, --danger 4.7:1, --ok y --warn > 5:1.
    ========================================================================== */
 
 @theme {
@@ -22,6 +30,7 @@
 }
 
 :root {
+  --color0: #1f0640;
   --color1: #290854;
   --color2: #401d6b;
   --color3: #583383;
@@ -37,11 +46,22 @@
 
   --text-main: var(--color6);
   --text-muted: #d5c4ec;
-  --text-dim: #9c80bd;
+  --text-dim: #b8a2d4;
 
   --accent-primary: var(--color5);
   --accent-secondary: var(--color4);
   --accent-light: #ab85d9;
+  --accent: #ab85d9;
+  --accent-soft: rgba(171, 133, 217, 0.14);
+  --accent-border: rgba(171, 133, 217, 0.4);
+
+  /* Colores de estado: solo para comunicar significado */
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
@@ -184,4 +204,29 @@ body::before {
   border-color: var(--color5);
   color: var(--color6);
   background-color: var(--color3);
+}
+
+/* Avisos de resultado (reutilizables en todas las vistas).
+   El color comunica el resultado: verde = éxito, rojo = error, violeta = información. */
+.aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.aviso-ok {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.aviso-error {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
 }

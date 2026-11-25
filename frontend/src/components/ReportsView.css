@@ -38,9 +38,9 @@
 }
 
 .btn-rep-pdf {
-  background-color: rgba(6, 182, 212, 0.2);
-  border: 1px solid #06b6d4;
-  color: #38bdf8;
+  background-color: rgba(171, 133, 217, 0.2);
+  border: 1px solid #ab85d9;
+  color: #ab85d9;
   font-size: 0.72rem;
   font-family: var(--font-mono);
   font-weight: 700;
@@ -54,7 +54,7 @@
 }
 
 .btn-rep-pdf:hover {
-  background-color: #06b6d4;
+  background-color: #ab85d9;
   color: #000;
 }
 
@@ -165,7 +165,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #f59e0b;
+  background-color: #fbbf24;
 }
 
 .cert-status-warn {
@@ -307,25 +307,25 @@
 .leg-purple {
   background-color: rgba(134, 93, 177, 0.2);
   border: 1px solid var(--color5);
-  color: #c49cf5;
+  color: #d5c4ec;
 }
 
 .leg-cyan {
-  background-color: rgba(6, 182, 212, 0.2);
-  border: 1px solid #06b6d4;
-  color: #38bdf8;
+  background-color: rgba(171, 133, 217, 0.2);
+  border: 1px solid #ab85d9;
+  color: #ab85d9;
 }
 
 .leg-amber {
-  background-color: rgba(245, 158, 11, 0.2);
-  border: 1px solid #f59e0b;
+  background-color: rgba(251, 191, 36, 0.2);
+  border: 1px solid #fbbf24;
   color: #fbbf24;
 }
 
 .leg-crit {
-  background-color: rgba(239, 68, 68, 0.2);
-  border: 1px solid #ef4444;
-  color: #fca5a5;
+  background-color: rgba(248, 113, 113, 0.2);
+  border: 1px solid #f87171;
+  color: #f87171;
 }
 
 /* Graphic Area */
@@ -354,12 +354,12 @@
 
 .thresh-line-crit {
   bottom: calc(70% * 0.72 + 48px);
-  border-color: rgba(239, 68, 68, 0.65);
+  border-color: rgba(248, 113, 113, 0.65);
 }
 
 .thresh-line-opt {
   bottom: calc(40% * 0.72 + 48px);
-  border-color: rgba(16, 185, 129, 0.65);
+  border-color: rgba(52, 211, 153, 0.65);
 }
 
 .thresh-line-lbl {
@@ -372,11 +372,11 @@
 }
 
 .thresh-line-crit .thresh-line-lbl {
-  color: #ef4444;
+  color: #f87171;
 }
 
 .thresh-line-opt .thresh-line-lbl {
-  color: #10b981;
+  color: #34d399;
 }
 
 .bars-container {
@@ -405,7 +405,7 @@
 .reduction-pill {
   position: absolute;
   top: 4px;
-  background-color: #ef4444;
+  background-color: #f87171;
   color: #ffffff;
   font-size: 0.56rem;
   font-family: var(--font-mono);
@@ -416,21 +416,21 @@
   flex-direction: column;
   align-items: center;
   white-space: nowrap;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.5);
   z-index: 20;
 }
 
 .badge-nums {
   font-size: 0.5rem;
-  color: #fee2e2;
+  color: #f87171;
 }
 
 .count-pill {
   position: absolute;
   top: 10px;
-  background-color: rgba(6, 182, 212, 0.2);
-  border: 1px solid #06b6d4;
-  color: #38bdf8;
+  background-color: rgba(171, 133, 217, 0.2);
+  border: 1px solid #ab85d9;
+  color: #ab85d9;
   font-size: 0.56rem;
   font-family: var(--font-mono);
   font-weight: 700;
@@ -558,7 +558,7 @@
   font-size: 0.64rem;
   font-family: var(--font-mono);
   color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  border: 1px solid rgba(248, 113, 113, 0.4);
   padding: 2px 7px;
   border-radius: 4px;
 }
@@ -593,9 +593,9 @@
 }
 
 .badge-urg-crit {
-  background-color: rgba(239, 68, 68, 0.2);
-  border: 1px solid #ef4444;
-  color: #fca5a5;
+  background-color: rgba(248, 113, 113, 0.2);
+  border: 1px solid #f87171;
+  color: #f87171;
   font-size: 0.58rem;
   font-family: var(--font-mono);
   font-weight: 700;
@@ -604,8 +604,8 @@
 }
 
 .badge-urg-warn {
-  background-color: rgba(245, 158, 11, 0.2);
-  border: 1px solid #f59e0b;
+  background-color: rgba(251, 191, 36, 0.2);
+  border: 1px solid #fbbf24;
   color: #fbbf24;
   font-size: 0.58rem;
   font-family: var(--font-mono);
@@ -615,9 +615,9 @@
 }
 
 .badge-urg-info {
-  background-color: rgba(6, 182, 212, 0.2);
-  border: 1px solid #06b6d4;
-  color: #38bdf8;
+  background-color: rgba(171, 133, 217, 0.2);
+  border: 1px solid #ab85d9;
+  color: #ab85d9;
   font-size: 0.58rem;
   font-family: var(--font-mono);
   font-weight: 700;
