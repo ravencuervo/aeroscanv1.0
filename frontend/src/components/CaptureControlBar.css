@@ -79,7 +79,7 @@
 
 .adapter-select-control option {
   background-color: #130924;
-  color: #f1f5f9;
+  color: #ffffff;
   padding: 6px;
 }
 
@@ -209,7 +209,7 @@
 .btn-tactical-stop {
   background-color: rgba(239, 68, 68, 0.15);
   border: 1px solid #ef4444;
-  color: #fca5a5;
+  color: #ef4444;
   padding: 6px 14px;
   border-radius: 6px;
   font-size: 0.74rem;
@@ -230,7 +230,7 @@
 .btn-tactical-start {
   background-color: rgba(16, 185, 129, 0.18) !important;
   border: 1px solid #10b981 !important;
-  color: #6ee7b7 !important;
+  color: #10b981 !important;
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
 }
 
@@ -243,7 +243,7 @@
 .btn-tactical-pause {
   background-color: rgba(245, 158, 11, 0.15);
   border: 1px solid #f59e0b;
-  color: #fde68a;
+  color: #f59e0b;
   padding: 6px 14px;
   border-radius: 6px;
   font-size: 0.74rem;
@@ -264,7 +264,7 @@
 .btn-tactical-pause.active-paused {
   background-color: #f59e0b;
   color: #1a0826;
-  border-color: #fde68a;
+  border-color: #f59e0b;
 }
 
 .btn-tactical-export {

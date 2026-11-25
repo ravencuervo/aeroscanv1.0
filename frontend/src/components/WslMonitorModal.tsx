@@ -180,9 +180,9 @@ export const WslMonitorModal: React.FC<WslMonitorModalProps> = ({ isOpen, onClos
               style={{
                 padding: '10px 14px',
                 borderRadius: '6px',
-                backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                border: '1px solid #38bdf8',
-                color: '#7dd3fc',
+                backgroundColor: 'rgba(171, 133, 217, 0.15)',
+                border: '1px solid #ab85d9',
+                color: '#d5c4ec',
                 fontSize: '0.74rem',
                 fontWeight: 600,
                 display: 'flex',

@@ -10,7 +10,6 @@ interface HeaderBarProps {
   activeTab?: string;
   onLogout: () => void;
   onNavigate?: (tab: string) => void;
-  onOpenNewSession?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -21,7 +20,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   activeTab = 'live',
   onLogout,
   onNavigate,
-  onOpenNewSession,
 }) => {
   const [showNotifications, setShowNotifications] = React.useState(false);
 
@@ -132,30 +130,19 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             alignItems: 'center',
             gap: '4px',
             padding: '4px 8px',
-            backgroundColor: 'rgba(56, 189, 248, 0.12)',
-            border: '1px solid rgba(56, 189, 248, 0.35)',
+            backgroundColor: 'rgba(171, 133, 217, 0.12)',
+            border: '1px solid rgba(171, 133, 217, 0.35)',
             borderRadius: '6px',
-            color: '#7dd3fc',
+            color: '#d5c4ec',
             fontSize: '0.68rem',
             fontFamily: 'var(--font-mono)',
             fontWeight: 700,
           }}
           title="AeroScan Versión 1.0.0 — Facultad de Ingeniería Estadística e Informática (UNA Puno)"
         >
-          <i className="bi bi-patch-check-fill" style={{ color: '#38bdf8' }}></i>
+          <i className="bi bi-patch-check-fill" style={{ color: '#ab85d9' }}></i>
           <span>v1.0.0</span>
         </div>
-
-        {onOpenNewSession && (
-          <button
-            className="header-audit-btn"
-            onClick={onOpenNewSession}
-            title="Iniciar nueva auditoría formal en SQLite"
-          >
-            <i className="bi bi-plus-circle-fill"></i>
-            <span>Nueva Auditoría</span>
-          </button>
-        )}
 
         <button
           className="header-icon-btn"
@@ -213,7 +200,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(88, 51, 131, 0.3)', paddingBottom: '6px' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--color6)' }}>
-              <i className="bi bi-bell-fill" style={{ marginRight: '6px', color: '#06b6d4' }}></i>
+              <i className="bi bi-bell-fill" style={{ marginRight: '6px', color: '#865db1' }}></i>
               Notificaciones del Sistema
             </span>
             <button
@@ -227,7 +214,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <div style={{ padding: '6px', backgroundColor: 'var(--color1)', borderRadius: '4px', borderLeft: '3px solid #10b981' }}>
               <strong style={{ color: 'var(--color6)' }}>Hardware Sincronizado:</strong> Transceptores Wi-Fi operando en tiempo real.
             </div>
-            <div style={{ padding: '6px', backgroundColor: 'var(--color1)', borderRadius: '4px', borderLeft: '3px solid #38bdf8' }}>
+            <div style={{ padding: '6px', backgroundColor: 'var(--color1)', borderRadius: '4px', borderLeft: '3px solid #ab85d9' }}>
               <strong style={{ color: 'var(--color6)' }}>Base de Datos Activa:</strong> Grabación de tramas en SQLite WAL activa.
             </div>
           </div>

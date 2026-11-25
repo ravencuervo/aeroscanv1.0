@@ -239,7 +239,7 @@ export const CaptureControlBar: React.FC<CaptureControlBarProps> = ({
           </button>
 
           <div className="band-pill inactive">
-            <span className="band-pill-dot" style={{ backgroundColor: '#64748b' }}></span>
+            <span className="band-pill-dot" style={{ backgroundColor: '#9c80bd' }}></span>
             6 GHz (WiFi 6E): INACTIVO
           </div>
 

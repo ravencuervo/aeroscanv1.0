@@ -97,9 +97,9 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
                     fontFamily: 'var(--font-mono)',
                     padding: '2px 6px',
                     borderRadius: '4px',
-                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                    border: '1px solid #38bdf8',
-                    color: '#7dd3fc',
+                    backgroundColor: 'rgba(171, 133, 217, 0.2)',
+                    border: '1px solid #ab85d9',
+                    color: '#d5c4ec',
                     fontWeight: 800,
                   }}
                 >
@@ -122,16 +122,16 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
               justifyContent: 'space-between',
               padding: '8px 12px',
               borderRadius: '8px',
-              backgroundColor: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
+              backgroundColor: 'rgba(171, 133, 217, 0.08)',
+              border: '1px solid rgba(171, 133, 217, 0.25)',
               marginBottom: '16px',
               fontSize: '0.74rem',
-              color: '#94a3b8',
+              color: '#9c80bd',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <i className="bi bi-info-circle-fill" style={{ color: '#38bdf8' }}></i>
-              <span>Operador: <strong style={{ color: '#e2e8f0' }}>admin</strong> / <strong style={{ color: '#e2e8f0' }}>admin123</strong></span>
+              <i className="bi bi-info-circle-fill" style={{ color: '#ab85d9' }}></i>
+              <span>Operador: <strong style={{ color: '#ffffff' }}>admin</strong> / <strong style={{ color: '#ffffff' }}>admin123</strong></span>
             </div>
             <button
               type="button"
@@ -140,9 +140,9 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
                 setPassword('admin123');
               }}
               style={{
-                background: 'rgba(56, 189, 248, 0.15)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
-                color: '#38bdf8',
+                background: 'rgba(171, 133, 217, 0.15)',
+                border: '1px solid rgba(171, 133, 217, 0.4)',
+                color: '#ab85d9',
                 borderRadius: '4px',
                 padding: '2px 8px',
                 fontSize: '0.68rem',

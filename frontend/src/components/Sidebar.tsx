@@ -48,9 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     fontFamily: 'var(--font-mono)',
                     padding: '1px 5px',
                     borderRadius: '4px',
-                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                    border: '1px solid #38bdf8',
-                    color: '#7dd3fc',
+                    backgroundColor: 'rgba(171, 133, 217, 0.2)',
+                    border: '1px solid #ab85d9',
+                    color: '#d5c4ec',
                     fontWeight: 700,
                   }}
                 >
@@ -175,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <>
             <div className="buffer-header">
               <span>ALMACENAMIENTO BD</span>
-              <span className="buffer-val" style={{ color: '#38bdf8' }}>
+              <span className="buffer-val" style={{ color: '#ab85d9' }}>
                 {systemInfo?.db_size_formatted || '0.24 MB'}
               </span>
             </div>
@@ -184,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="buffer-progress-fill"
                 style={{
                   width: `${Math.min(100, Math.max(5, systemInfo?.disk_usage_percent || 12))}%`,
-                  background: 'linear-gradient(90deg, #06b6d4, #10b981)',
+                  background: '#865db1',
                 }}
               ></div>
             </div>
@@ -196,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <>
             <div className="buffer-header">
               <span>BUFFER FIFO</span>
-              <span className="buffer-val" style={{ color: '#38bdf8' }}>
+              <span className="buffer-val" style={{ color: '#ab85d9' }}>
                 {totalPackets > 0 ? `${totalPackets} tramas` : '4.2 KB / RAM'}
               </span>
             </div>

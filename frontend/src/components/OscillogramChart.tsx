@@ -303,7 +303,7 @@ export const OscillogramChart: React.FC<OscillogramChartProps> = ({ accessPoints
         ctx.lineTo(x, padTop + plotH);
         ctx.stroke();
 
-        ctx.fillStyle = idx === timeTicks.length - 1 ? '#38bdf8' : '#9c80bd';
+        ctx.fillStyle = idx === timeTicks.length - 1 ? '#ab85d9' : '#9c80bd';
         ctx.font = `${8 * dpr}px 'JetBrains Mono', monospace`;
         ctx.textAlign = 'center';
         ctx.fillText(tick, x, h - padBottom + 16 * dpr);
@@ -384,20 +384,20 @@ export const OscillogramChart: React.FC<OscillogramChartProps> = ({ accessPoints
         }
 
         if (primaryAp) {
-          // Primary Wave (Cyan #38bdf8)
-          drawWave('#38bdf8', smoothVal1Ref.current, 4.5, 0);
+          // Primary Wave (Cyan #ab85d9)
+          drawWave('#ab85d9', smoothVal1Ref.current, 4.5, 0);
 
           const pin1X = padLeft + plotW * 0.28;
           const pin1Y = valToY(smoothVal1Ref.current);
           ctx.fillStyle = '#1e053e';
-          ctx.strokeStyle = '#38bdf8';
+          ctx.strokeStyle = '#ab85d9';
           ctx.lineWidth = 1.5 * dpr;
           ctx.beginPath();
           ctx.roundRect(pin1X - 65 * dpr, pin1Y - 26 * dpr, 130 * dpr, 20 * dpr, 4 * dpr);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = '#38bdf8';
+          ctx.fillStyle = '#ab85d9';
           ctx.font = `bold ${8.5 * dpr}px 'JetBrains Mono', monospace`;
           ctx.textAlign = 'center';
           ctx.fillText(
@@ -462,7 +462,7 @@ export const OscillogramChart: React.FC<OscillogramChartProps> = ({ accessPoints
           });
         }
 
-        const colors = ['#38bdf8', '#865db1', '#10b981', '#f59e0b', '#ec4899'];
+        const colors = ['#ab85d9', '#865db1', '#10b981', '#f59e0b', '#865db1'];
         let colorIdx = 0;
 
         seriesMap.forEach((pts, ssidKey) => {
@@ -713,7 +713,7 @@ export const OscillogramChart: React.FC<OscillogramChartProps> = ({ accessPoints
               <div className="history-stats-overlay">
                 <div className="history-stat-box">
                   <span className="history-stat-lbl">MÁXIMO</span>
-                  <span className="history-stat-val" style={{ color: '#38bdf8' }}>{historyStats.max}</span>
+                  <span className="history-stat-val" style={{ color: '#ab85d9' }}>{historyStats.max}</span>
                 </div>
                 <div className="history-stat-box">
                   <span className="history-stat-lbl">PROMEDIO</span>
@@ -745,7 +745,7 @@ export const OscillogramChart: React.FC<OscillogramChartProps> = ({ accessPoints
       <div className="oscillogram-footer">
         <div className="oscillogram-legend-items">
           <div className="legend-tag">
-            <span className="legend-line" style={{ backgroundColor: '#38bdf8' }}></span>
+            <span className="legend-line" style={{ backgroundColor: '#ab85d9' }}></span>
             <span>
               {selectedSSID !== 'Todas'
                 ? `Red Seleccionada: ${selectedSSID}`
@@ -768,7 +768,7 @@ export const OscillogramChart: React.FC<OscillogramChartProps> = ({ accessPoints
 
           <div className="legend-tag">
             <span className="legend-line-dashed"></span>
-            <span style={{ color: '#94a3b8' }}>{metricScale.threshLabel}</span>
+            <span style={{ color: '#9c80bd' }}>{metricScale.threshLabel}</span>
           </div>
         </div>
 

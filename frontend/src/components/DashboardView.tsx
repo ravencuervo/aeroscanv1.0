@@ -206,10 +206,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           const normCh = (ap.channel - 1) / 13;
           const cxRatio = 0.08 + normCh * 0.36;
           const wRatio = (ap.channel_width || 20) > 20 ? 0.16 : 0.10;
-          let col = '#06b6d4';
-          if (ap.channel === 6) col = '#f43f5e';
+          let col = '#865db1';
+          if (ap.channel === 6) col = '#ef4444';
           else if (ap.channel === 1) col = '#10b981';
-          else if (ap.channel === 11) col = '#a855f7';
+          else if (ap.channel === 11) col = '#865db1';
           activeTargets.set(ap.bssid, {
             cx: cxRatio,
             width: wRatio,
@@ -323,7 +323,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Render RSSI Temporal Line Chart using TOP REAL access points with Smooth LERP
   const topRealAps = useMemo(() => [...accessPoints].sort((a, b) => b.rssi - a.rssi).slice(0, 3), [accessPoints]);
-  const chartColors = ['#06b6d4', '#a855f7', '#f43f5e'];
+  const chartColors = ['#865db1', '#865db1', '#ef4444'];
 
   useEffect(() => {
     const canvas = rssiCanvasRef.current;
@@ -416,13 +416,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     let stateColor = '#10b981';
     if (ap.rssi < -80) {
       state = 'DÉBIL';
-      stateColor = '#94a3b8';
+      stateColor = '#9c80bd';
     } else if (ap.rssi < -70) {
       state = 'MODERADO';
       stateColor = '#f59e0b';
     } else if (ap.rssi < -60) {
       state = 'BUENO';
-      stateColor = '#38bdf8';
+      stateColor = '#ab85d9';
     }
     return {
       ssid: ap.ssid || '<Oculta>',

@@ -32,7 +32,7 @@ export const DaemonNoticeBanner: React.FC<DaemonNoticeBannerProps> = ({
           className="daemon-badge"
           style={{
             borderColor: isCapturing ? '#10b981' : '#f59e0b',
-            color: isCapturing ? '#6ee7b7' : '#fde68a',
+            color: isCapturing ? '#10b981' : '#f59e0b',
           }}
         >
           DAEMON: {isLive ? (isCapturing ? 'ACTIVO' : 'EN ESPERA') : 'OFFLINE'}
@@ -44,7 +44,7 @@ export const DaemonNoticeBanner: React.FC<DaemonNoticeBannerProps> = ({
             style={{
               backgroundColor: isCapturing ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
               borderColor: isCapturing ? '#ef4444' : '#10b981',
-              color: isCapturing ? '#fca5a5' : '#6ee7b7',
+              color: isCapturing ? '#ef4444' : '#10b981',
               cursor: 'pointer',
             }}
           >

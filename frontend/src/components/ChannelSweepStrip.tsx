@@ -60,7 +60,7 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
           className="sweep-active-badge"
           style={{
             borderColor: isCapturing ? 'var(--color5)' : '#f59e0b',
-            color: isCapturing ? 'var(--color6)' : '#fde68a',
+            color: isCapturing ? 'var(--color6)' : '#f59e0b',
             backgroundColor: isCapturing ? 'var(--color1)' : 'rgba(245, 158, 11, 0.15)',
           }}
         >
@@ -120,8 +120,8 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
               className={`channel-cell ${isStrongest ? 'active-channel' : ''}`}
               style={{
                 cursor: 'pointer',
-                outline: isSelected ? '2px solid #38bdf8' : 'none',
-                backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.12)' : undefined,
+                outline: isSelected ? '2px solid #ab85d9' : 'none',
+                backgroundColor: isSelected ? 'rgba(171, 133, 217, 0.12)' : undefined,
               }}
               onClick={() => setSelectedCh(isSelected ? null : item.ch)}
               title={`Haz clic para ver los ${apCount} APs detectados en Canal ${item.ch}`}
@@ -161,14 +161,14 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
           style={{
             marginTop: '10px',
             backgroundColor: 'var(--color1)',
-            border: '1px solid #38bdf8',
+            border: '1px solid #ab85d9',
             borderRadius: '6px',
             padding: '10px 14px',
             fontSize: '0.74rem',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontWeight: 700, color: '#38bdf8' }}>
+            <span style={{ fontWeight: 700, color: '#ab85d9' }}>
               <i className="bi bi-broadcast" style={{ marginRight: '6px' }}></i>
               Canal Ch {selectedCh} — {selectedAps.length} {selectedAps.length === 1 ? 'Red Detectada' : 'Redes Detectadas en este canal'}
             </span>
@@ -203,7 +203,7 @@ export const ChannelSweepStrip: React.FC<ChannelSweepStripProps> = ({ accessPoin
                       {ap.rssi} dBm
                     </span>
                     <span style={{ color: 'var(--text-dim)' }}>{ap.security}</span>
-                    <span style={{ color: '#38bdf8' }}>{ap.vendor}</span>
+                    <span style={{ color: '#ab85d9' }}>{ap.vendor}</span>
                   </div>
                 </div>
               ))}

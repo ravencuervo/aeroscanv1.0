@@ -303,9 +303,9 @@ export const App: React.FC = () => {
           activeTab={activeNav}
           isCapturing={isCapturing}
           onTabChange={setActiveNav}
-          onLogout={handleLogout}
           onOpenNewSession={() => setIsModalOpen(true)}
-          systemInfo={systemInfo}
+          onLogout={handleLogout}
+                    systemInfo={systemInfo}
           totalPackets={totalPackets}
         />
 
@@ -319,8 +319,7 @@ export const App: React.FC = () => {
             activeTab={activeNav}
             onLogout={handleLogout}
             onNavigate={setActiveNav}
-            onOpenNewSession={() => setIsModalOpen(true)}
-          />
+                      />
 
           <div className="dashboard-content-body">
             {/* 1. Dashboard Principal (Image 1) */}
