@@ -90,3 +90,27 @@
   gap: 12px;
   background-color: rgba(41, 8, 84, 0.6);
 }
+
+/* Aviso de uso legal (RN-09) */
+.modal-legal-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--warn-soft);
+  border: 1px solid var(--warn);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.modal-legal-check input {
+  margin-top: 2px;
+  accent-color: var(--color5);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
