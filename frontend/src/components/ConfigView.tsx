@@ -20,6 +20,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   const [noiseFloor, setNoiseFloor] = useState(-95);
   const [enable24, setEnable24] = useState(true);
   const [enable5, setEnable5] = useState(true);
+  // La banda de 6 GHz está fuera del alcance del proyecto (SRS): se envía siempre desactivada
   const [enable6, setEnable6] = useState(false);
   const [criticalRssi, setCriticalRssi] = useState(-80);
   const [maxCongestion, setMaxCongestion] = useState(3);
@@ -28,6 +29,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [isVacuuming, setIsVacuuming] = useState(false);
   const [vacuumMessage, setVacuumMessage] = useState<string | null>(null);
+  const [vacuumError, setVacuumError] = useState(false);
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [showWslModal, setShowWslModal] = useState(false);
 
   const handleVacuum = async () => {
@@ -36,14 +39,19 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
       const res = await fetch('/api/system/db/vacuum', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        setVacuumMessage(`Base de datos compactada con éxito. Tamaño actual: ${data.after_formatted}.`);
+        setVacuumError(false);
+        setVacuumMessage(`Base de datos compactada. Tamaño actual: ${data.after_formatted}.`);
         fetch('/api/system/info')
           .then((r) => r.json())
-          .then((d) => setSystemInfo(d));
+          .then((d) => setSystemInfo(d))
+          .catch(() => undefined);
+      } else {
+        setVacuumError(true);
+        setVacuumMessage('No se pudo compactar la base de datos.');
       }
-    } catch (err) {
-      console.error('Error executing vacuum:', err);
-      setVacuumMessage('Error al ejecutar VACUUM.');
+    } catch {
+      setVacuumError(true);
+      setVacuumMessage('Sin conexión con el núcleo: no se compactó la base de datos.');
     } finally {
       setIsVacuuming(false);
       setTimeout(() => setVacuumMessage(null), 5000);
@@ -68,17 +76,18 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
         if (data.critical_rssi_threshold) setCriticalRssi(data.critical_rssi_threshold);
         if (data.max_ap_congestion) setMaxCongestion(data.max_ap_congestion);
       })
-      .catch((err) => console.warn('Could not fetch server config:', err));
+      .catch(() => undefined); // sin núcleo se mantienen los valores por defecto
 
     // Fetch system info
     fetch('/api/system/info')
       .then((res) => res.json())
       .then((data) => setSystemInfo(data))
-      .catch((err) => console.warn('Could not fetch system info:', err));
+      .catch(() => undefined); // los campos muestran «—»
   }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
+    setErrorGuardado(null);
     try {
       const payload = {
         selected_adapter: currentAdapter,
@@ -102,9 +111,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
         onSelectAdapter(currentAdapter);
         setShowSavedToast(true);
         setTimeout(() => setShowSavedToast(false), 4000);
+      } else {
+        setErrorGuardado('No se pudo guardar la configuración. Revisa los valores e inténtalo de nuevo.');
       }
-    } catch (err) {
-      console.error('Error saving configuration:', err);
+    } catch {
+      setErrorGuardado('Sin conexión con el núcleo: la configuración no se guardó.');
     } finally {
       setIsSaving(false);
     }
@@ -151,8 +162,15 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
         <div className="config-toast-success">
           <i className="bi bi-check-circle-fill"></i>
           <span>
-            Configuración guardada y sincronizada correctamente con los transceptores de hardware.
+            Configuración guardada.
           </span>
+        </div>
+      )}
+
+      {errorGuardado && (
+        <div className="aviso aviso-error" role="alert">
+          <i className="bi bi-x-circle-fill"></i>
+          <span>{errorGuardado}</span>
         </div>
       )}
 
@@ -219,7 +237,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                 >
                   <span style={{ color: 'var(--color6)', fontWeight: 600 }}>{ad.name}</span>
                   <span style={{ color: 'var(--text-muted)' }}>{ad.mac_address || 'MAC N/A'}</span>
-                  <span style={{ color: '#10b981' }}>{ad.status.toUpperCase()}</span>
+                  <span style={{ color: '#34d399' }}>{ad.status.toUpperCase()}</span>
                 </div>
               ))}
               {adapters.length === 0 && (
@@ -241,7 +259,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               }}
             >
               <div>
-                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#ab85d9', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <i className="bi bi-ubuntu"></i>
                   Extensión WSL2 Modo Monitor
                 </span>
@@ -253,7 +271,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               <button
                 type="button"
                 className="btn-tactical-stop"
-                style={{ padding: '6px 12px', fontSize: '0.68rem', backgroundColor: '#0284c7', borderColor: '#38bdf8', whiteSpace: 'nowrap' }}
+                style={{ padding: '6px 12px', fontSize: '0.68rem', backgroundColor: '#ab85d9', borderColor: '#ab85d9', whiteSpace: 'nowrap' }}
                 onClick={() => setShowWslModal(true)}
               >
                 ASISTENTE WSL2
@@ -363,14 +381,6 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                 <span>Banda 5 GHz UNII-1/2/3 (Canales 36 al 165)</span>
               </label>
 
-              <label className="config-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={enable6}
-                  onChange={(e) => setEnable6(e.target.checked)}
-                />
-                <span>Banda 6 GHz (Wi-Fi 6E / Wi-Fi 7)</span>
-              </label>
             </div>
           </div>
 
@@ -444,7 +454,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Versión del Software:</span>
-                <span style={{ color: '#38bdf8', fontWeight: 700 }}>AeroScan v{systemInfo?.app_version || '1.0.0'} (Build {systemInfo?.app_build || '2026.11'})</span>
+                <span style={{ color: '#ab85d9', fontWeight: 700 }}>AeroScan v{systemInfo?.app_version || '1.0.0'} (Build {systemInfo?.app_build || '2026.11'})</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Institución / Facultad:</span>
@@ -452,23 +462,23 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Sistema Operativo:</span>
-                <span style={{ color: 'var(--color6)' }}>{systemInfo?.platform || 'Windows Native'}</span>
+                <span style={{ color: 'var(--color6)' }}>{systemInfo?.platform || '—'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Entorno Python:</span>
-                <span style={{ color: 'var(--color6)' }}>Python {systemInfo?.python_version || '3.11+'}</span>
+                <span style={{ color: 'var(--color6)' }}>Python {systemInfo?.python_version || '—'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Archivo de Base de Datos:</span>
-                <span style={{ color: '#38bdf8' }}>scan.db (Modo WAL)</span>
+                <span style={{ color: '#ab85d9' }}>scan.db (Modo WAL)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Tamaño en Disco:</span>
-                <span style={{ color: 'var(--color6)' }}>{systemInfo?.db_size_formatted || '1.8 MB'}</span>
+                <span style={{ color: 'var(--color6)' }}>{systemInfo?.db_size_formatted || '—'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Sesión Activa:</span>
-                <span style={{ color: '#10b981' }}>#{systemInfo?.active_session_id || 1} en ejecución</span>
+                <span style={{ color: '#34d399' }}>#{systemInfo?.active_session_id || 1} en ejecución</span>
               </div>
             </div>
           </div>
@@ -499,8 +509,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
               </button>
             </div>
             {vacuumMessage && (
-              <span style={{ fontSize: '0.7rem', color: '#38bdf8', marginTop: '6px', display: 'block' }}>
-                <i className="bi bi-info-circle" style={{ marginRight: '4px' }}></i>
+              <span
+                role="status"
+                style={{ fontSize: '0.7rem', color: vacuumError ? 'var(--danger)' : 'var(--ok)', marginTop: '6px', display: 'block' }}
+              >
+                <i className={`bi ${vacuumError ? 'bi-x-circle' : 'bi-check-circle'}`} style={{ marginRight: '4px' }}></i>
                 {vacuumMessage}
               </span>
             )}

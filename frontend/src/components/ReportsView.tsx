@@ -201,7 +201,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               {healthScore >= 75 ? 'ESTADO ÓPTIMO / ESTABLE' : 'CONGESTIÓN DETECTADA'}
             </div>
             <div className="cert-status-sub">
-              {recommendations?.summary || 'Análisis de canales completado con éxito.'}
+              {recommendations?.summary || 'Aún no hay datos de captura para analizar.'}
             </div>
           </div>
         </div>
@@ -311,16 +311,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 bar.count === 0
                   ? 'rgba(255, 255, 255, 0.08)'
                   : bar.isCritical
-                  ? 'linear-gradient(180deg, #ef4444, #b91c1c)'
+                  ? 'linear-gradient(180deg, #f87171, #f87171)'
                   : bar.isModerate
-                  ? 'linear-gradient(180deg, #f59e0b, #d97706)'
-                  : 'linear-gradient(180deg, #06b6d4, #0891b2)';
+                  ? 'linear-gradient(180deg, #fbbf24, #fbbf24)'
+                  : 'linear-gradient(180deg, #ab85d9, #ab85d9)';
 
               const barShadow =
                 bar.isCritical
-                  ? '0 0 12px rgba(239, 68, 68, 0.4)'
+                  ? '0 0 12px rgba(248, 113, 113, 0.4)'
                   : bar.count > 0
-                  ? '0 0 8px rgba(6, 182, 212, 0.3)'
+                  ? '0 0 8px rgba(171, 133, 217, 0.3)'
                   : 'none';
 
               return (

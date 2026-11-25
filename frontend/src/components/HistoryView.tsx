@@ -1,9 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './HistoryView.css';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface HistoryViewProps {
   onGeneratePdf: () => void;
 }
+
+// Etiquetas legibles para cada motor de captura
+const ETIQUETA_MOTOR: Record<string, string> = {
+  windows: 'Hardware real (Windows)',
+  scapy: 'Modo monitor (WSL2)',
+  simulation: 'Simulación',
+};
+
+const formatearFecha = (iso?: string) => (iso ? new Date(iso).toLocaleString('es-PE') : 'En curso');
+
+// Convierte una fila de /api/sessions al formato que usa la tabla.
+// Antes este bloque estaba copiado dos veces (al cargar y al purgar).
+const mapearSesion = (s: any) => ({
+  rawId: s.id,
+  id: `#SES-${s.id}`,
+  name: s.name,
+  location: s.location || '—',
+  date: formatearFecha(s.start_time || s.created_at),
+  engineType: s.engine_type || 'windows',
+  engineLabel: ETIQUETA_MOTOR[s.engine_type] || 'Simulación',
+  samplesCount: s.sample_count || s.samples_count || 0,
+  uniqueAps: s.unique_aps || 0,
+  status: s.status === 'completed' ? 'FINALIZADA' : 'ACTIVA',
+  color: s.status === 'completed' ? '#34d399' : '#ab85d9',
+});
+
+type TipoAviso = 'info' | 'ok' | 'error';
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
   const [bandFilter, setBandFilter] = useState<'all' | '2.4ghz' | '5ghz' | '6ghz'>('all');
@@ -27,95 +55,65 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
   const [detailSamples, setDetailSamples] = useState<any[]>([]);
   const [isLoadingSamples, setIsLoadingSamples] = useState(false);
   const [compareMessage, setCompareMessage] = useState<string | null>(null);
+  const [tipoAviso, setTipoAviso] = useState<TipoAviso>('info');
+  // Acción pendiente de confirmar en el diálogo propio (purgar o eliminar)
+  const [confirmacion, setConfirmacion] = useState<
+    { tipo: 'purgar' } | { tipo: 'eliminar'; rawId: number } | null
+  >(null);
+
+  // Muestra un aviso con el color de su resultado y lo oculta después de unos segundos
+  const avisoTimer = useRef<number | undefined>(undefined);
+  const mostrarAviso = (texto: string, tipo: TipoAviso = 'info', ms = 4000) => {
+    setTipoAviso(tipo);
+    setCompareMessage(texto);
+    window.clearTimeout(avisoTimer.current);
+    avisoTimer.current = window.setTimeout(() => setCompareMessage(null), ms);
+  };
+
+  // Carga las sesiones y, si hay al menos dos, compara las dos más recientes
+  const cargarSesiones = async () => {
+    const res = await fetch('/api/sessions');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const lista = Array.isArray(data) ? data.map(mapearSesion) : [];
+    setRealSessions(lista);
+
+    if (lista.length >= 2) {
+      setSelectedSessions([lista[0].id, lista[1].id]);
+      try {
+        const r = await fetch(`/api/sessions/compare?id1=${lista[0].rawId}&id2=${lista[1].rawId}`);
+        const comp = r.ok ? await r.json() : null;
+        setComparisonData(comp && comp.session_1 && comp.session_2 ? comp : null);
+      } catch {
+        setComparisonData(null);
+      }
+    } else {
+      setSelectedSessions(lista.length > 0 ? [lista[0].id] : []);
+      setComparisonData(null);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/sessions')
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map((s: any) => ({
-            rawId: s.id,
-            id: `#SES-${s.id}`,
-            name: s.name,
-            location: s.location || 'Entorno Local',
-            date: s.start_time ? new Date(s.start_time).toLocaleString('es-ES') : (s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : 'En curso'),
-            channels: '2.4 GHz & 5 GHz',
-            engineType: s.engine_type || 'windows',
-            engineLabel: s.engine_type === 'windows' ? 'Hardware Real (Windows WLAN)' : (s.engine_type === 'scapy' ? 'Modo Monitor (WSL2 Scapy)' : 'Simulación'),
-            samplesCount: s.sample_count || s.samples_count || 0,
-            uniqueAps: s.unique_aps || 0,
-            status: s.status === 'completed' ? 'FINALIZADA' : 'ACTIVA',
-            color: s.status === 'completed' ? '#10b981' : '#38bdf8',
-          }));
-          setRealSessions(mapped);
-          if (mapped.length >= 2) {
-            setSelectedSessions([mapped[0].id, mapped[1].id]);
-            fetch(`/api/sessions/compare?id1=${mapped[0].rawId}&id2=${mapped[1].rawId}`)
-              .then((r) => (r.ok ? r.json() : null))
-              .then((comp) => {
-                if (comp && comp.session_1 && comp.session_2) {
-                  setComparisonData(comp);
-                } else {
-                  setComparisonData(null);
-                }
-              })
-              .catch(() => setComparisonData(null));
-          } else if (mapped.length > 0) {
-            setSelectedSessions([mapped[0].id]);
-            setComparisonData(null);
-          }
-        }
-      })
-      .catch((err) => console.warn('Error fetching real sessions:', err));
+    cargarSesiones().catch(() =>
+      mostrarAviso('No se pudo cargar el historial. Verifica que el núcleo de AeroScan esté en ejecución.', 'error', 6000)
+    );
+    return () => window.clearTimeout(avisoTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePurgeSimulated = async () => {
-    if (!window.confirm('¿Deseas purgar permanentemente todas las sesiones antiguas de prueba o simulación? Solo se conservarán las auditorías reales capturadas con hardware.')) {
-      return;
-    }
+    setConfirmacion(null);
     try {
       const res = await fetch('/api/sessions/purge-simulated', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setCompareMessage(`Limpieza completada: ${data.deleted_sessions} auditorías de prueba purgadas.`);
-        const sRes = await fetch('/api/sessions');
-        const sData = await sRes.json();
-        if (Array.isArray(sData)) {
-          const remap = sData.map((s: any) => ({
-            rawId: s.id,
-            id: `#SES-${s.id}`,
-            name: s.name,
-            location: s.location || 'Entorno Local',
-            date: s.start_time ? new Date(s.start_time).toLocaleString('es-ES') : (s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : 'En curso'),
-            channels: '2.4 GHz & 5 GHz',
-            engineType: s.engine_type || 'windows',
-            engineLabel: s.engine_type === 'windows' ? 'Hardware Real (Windows WLAN)' : (s.engine_type === 'scapy' ? 'Modo Monitor (WSL2 Scapy)' : 'Simulación'),
-            samplesCount: s.sample_count || s.samples_count || 0,
-            uniqueAps: s.unique_aps || 0,
-            status: s.status === 'completed' ? 'FINALIZADA' : 'ACTIVA',
-            color: s.status === 'completed' ? '#10b981' : '#38bdf8',
-          }));
-          setRealSessions(remap);
-          if (remap.length >= 2) {
-            setSelectedSessions([remap[0].id, remap[1].id]);
-            fetch(`/api/sessions/compare?id1=${remap[0].rawId}&id2=${remap[1].rawId}`)
-              .then((r) => (r.ok ? r.json() : null))
-              .then((comp) => {
-                if (comp && comp.session_1 && comp.session_2) {
-                  setComparisonData(comp);
-                } else {
-                  setComparisonData(null);
-                }
-              })
-              .catch(() => setComparisonData(null));
-          } else {
-            setSelectedSessions(remap.length > 0 ? [remap[0].id] : []);
-            setComparisonData(null);
-          }
-        }
+      if (!res.ok) {
+        mostrarAviso('No se pudieron eliminar las sesiones de prueba.', 'error');
+        return;
       }
-    } catch (err) {
-      console.error('Error purging simulated sessions:', err);
+      const data = await res.json();
+      await cargarSesiones();
+      mostrarAviso(`Limpieza completada: ${data.deleted_sessions} sesiones de prueba eliminadas.`, 'ok');
+    } catch {
+      mostrarAviso('Sin conexión con el núcleo: no se eliminaron las sesiones de prueba.', 'error');
     }
   };
 
@@ -123,27 +121,33 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
     setDetailSession(ses);
     setIsLoadingSamples(true);
     try {
-      const res = await fetch(`/api/session/${ses.rawId || 1}/samples`);
+      const res = await fetch(`/api/session/${ses.rawId}/samples`);
       if (res.ok) {
-        const samples = await res.json();
-        setDetailSamples(samples);
+        setDetailSamples(await res.json());
+      } else {
+        setDetailSamples([]);
+        mostrarAviso('No se pudieron cargar las lecturas de esta sesión.', 'error');
       }
-    } catch (err) {
-      console.error('Error fetching session samples:', err);
+    } catch {
+      setDetailSamples([]);
+      mostrarAviso('Sin conexión con el núcleo: no se cargaron las lecturas.', 'error');
     } finally {
       setIsLoadingSamples(false);
     }
   };
 
   const handleExportCsv = (rawId?: number) => {
-    const targetId = rawId || (realSessions[0] ? realSessions[0].rawId : 1);
+    const targetId = rawId ?? realSessions[0]?.rawId;
+    if (targetId === undefined) {
+      mostrarAviso('Todavía no hay sesiones guardadas para exportar.', 'info');
+      return;
+    }
     window.location.href = `/api/session/${targetId}/export/csv`;
   };
 
   const handleExportDiffCsv = () => {
     if (selectedSessions.length < 2) {
-      setCompareMessage('Selecciona al menos 2 casillas en la tabla para descargar la comparativa diferencial CSV.');
-      setTimeout(() => setCompareMessage(null), 4000);
+      mostrarAviso('Marca dos sesiones en la tabla para descargar la comparación en CSV.');
       return;
     }
     const id1 = String(selectedSessions[0]).replace(/[^0-9]/g, '');
@@ -153,50 +157,48 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
 
   const handleExportSessionPdf = async (rawId: number) => {
     try {
-      setCompareMessage(`Generando dictamen técnico PDF de la auditoría #${rawId}...`);
+      mostrarAviso(`Generando el informe PDF de la sesión #${rawId}...`, 'info', 30000);
       const res = await fetch(`/api/reports/pdf?session_id=${rawId}`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         if (data.download_url) {
           window.open(data.download_url, '_blank');
         }
-        setCompareMessage(`Informe PDF de sesión #${rawId} generado exitosamente.`);
+        mostrarAviso(`Informe PDF de la sesión #${rawId} generado.`, 'ok');
       } else {
-        setCompareMessage('No se pudo generar el PDF para esta sesión.');
+        mostrarAviso('No se pudo generar el PDF de esta sesión.', 'error');
       }
-    } catch (err) {
-      console.error('Error generating PDF for session:', err);
-      setCompareMessage('Error de red al emitir el PDF.');
-    } finally {
-      setTimeout(() => setCompareMessage(null), 4000);
+    } catch {
+      mostrarAviso('Sin conexión con el núcleo: no se generó el PDF.', 'error');
     }
   };
 
-  const handleDeleteSession = async (rawId: number, e: React.MouseEvent) => {
+  // El botón de la tabla solo abre el diálogo; el borrado real ocurre al confirmar
+  const handleDeleteSession = (rawId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm(`¿Estás seguro de eliminar permanentemente la auditoría #${rawId} de SQLite?`)) {
-      return;
-    }
+    setConfirmacion({ tipo: 'eliminar', rawId });
+  };
+
+  const eliminarSesion = async (rawId: number) => {
+    setConfirmacion(null);
     try {
       const res = await fetch(`/api/session/${rawId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setRealSessions((prev) => prev.filter((s) => s.rawId !== rawId));
-        setSelectedSessions((prev) => prev.filter((id) => id !== `#SES-${rawId}`));
-        if (detailSession?.rawId === rawId) {
-          setDetailSession(null);
-        }
-        setCompareMessage(`Auditoría #${rawId} eliminada correctamente de SQLite.`);
-        setTimeout(() => setCompareMessage(null), 3000);
+      if (!res.ok) {
+        mostrarAviso(`No se pudo eliminar la sesión #${rawId}.`, 'error');
+        return;
       }
-    } catch (err) {
-      console.error('Error deleting session:', err);
+      setRealSessions((prev) => prev.filter((s) => s.rawId !== rawId));
+      setSelectedSessions((prev) => prev.filter((id) => id !== `#SES-${rawId}`));
+      if (detailSession?.rawId === rawId) setDetailSession(null);
+      mostrarAviso(`Sesión #${rawId} eliminada.`, 'ok', 3000);
+    } catch {
+      mostrarAviso('Sin conexión con el núcleo: la sesión no se eliminó.', 'error');
     }
   };
 
   const handleCompareSessions = async () => {
     if (selectedSessions.length < 2) {
-      setCompareMessage('Selecciona al menos 2 casillas de sesión en la tabla para ejecutar el análisis diferencial.');
-      setTimeout(() => setCompareMessage(null), 4000);
+      mostrarAviso('Marca dos sesiones en la tabla para compararlas.');
       return;
     }
     const id1 = String(selectedSessions[0]).replace(/[^0-9]/g, '');
@@ -208,23 +210,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
         const data = await res.json();
         if (data && data.session_1 && data.session_2) {
           setComparisonData(data);
-          setCompareMessage(data.summary || `Comparativa diferencial calculada entre #${id1} y #${id2}.`);
+          mostrarAviso(data.summary || `Comparación calculada entre #${id1} y #${id2}.`, 'ok', 6000);
         } else {
           setComparisonData(null);
-          setCompareMessage(data?.detail || data?.error || 'No se pudieron contrastar estas sesiones.');
+          mostrarAviso(data?.detail || data?.error || 'No se pudieron comparar estas sesiones.', 'error', 6000);
         }
       } else {
         const err = await res.json().catch(() => null);
         setComparisonData(null);
-        setCompareMessage(err?.detail || err?.error || 'No se pudieron contrastar las sesiones seleccionadas.');
+        mostrarAviso(err?.detail || err?.error || 'No se pudieron comparar las sesiones seleccionadas.', 'error', 6000);
       }
-    } catch (err) {
-      console.error('Error fetching comparison:', err);
+    } catch {
       setComparisonData(null);
-      setCompareMessage('Error de red al consultar la comparativa.');
+      mostrarAviso('Sin conexión con el núcleo: no se pudo comparar.', 'error', 6000);
     } finally {
       setIsComparing(false);
-      setTimeout(() => setCompareMessage(null), 6000);
     }
   };
 
@@ -282,14 +282,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
         ctx.lineTo(w - padRight, y);
         ctx.stroke();
 
-        ctx.fillStyle = '#9c80bd';
+        ctx.fillStyle = '#b8a2d4';
         ctx.font = `${7.5 * dpr}px 'JetBrains Mono', monospace`;
         ctx.textAlign = 'right';
         ctx.fillText(`${lvl} dBm`, padLeft - 6 * dpr, y + 3 * dpr);
       });
 
       // Noise floor
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = '#b8a2d4';
       ctx.textAlign = 'left';
       ctx.fillText('-90 (Noise Floor)', padLeft + 6 * dpr, padTop + plotH - 6 * dpr);
 
@@ -382,7 +382,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
       }
 
       if (currentBand === '6ghz') {
-        ctx.fillStyle = '#9c80bd';
+        ctx.fillStyle = '#b8a2d4';
         ctx.font = `${9 * dpr}px 'JetBrains Mono', monospace`;
         ctx.textAlign = 'center';
         ctx.fillText(
@@ -401,13 +401,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             cxRatio = match ? match.r : (d.channel <= 14 ? 0.16 + ((d.channel - 1) / 12) * 0.76 : 0.5);
           }
 
-          // Session 1 curve (Purple)
+          // Sesión A: curva morada continua
           if (d.ap_count_1 > 0) {
             drawComparativeCurve(cxRatio, 0.16, d.max_rssi_1, '#865db1', 'rgba(134, 93, 177, 0.25)');
           }
-          // Session 2 curve (Cyan dashed)
+          // Sesión B: línea discontinua clara para distinguirla de la sesión A sin agregar otro color
           if (d.ap_count_2 > 0) {
-            drawComparativeCurve(cxRatio, 0.16, d.max_rssi_2, '#06b6d4', 'rgba(6, 182, 212, 0.25)', true);
+            drawComparativeCurve(cxRatio, 0.16, d.max_rssi_2, '#e4d7f5', 'rgba(228, 215, 245, 0.10)', true);
           }
         });
 
@@ -428,8 +428,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           const targetDbm = Math.max(-85, Math.min(-35, -55 + maxDelta));
           const my = padTop + plotH * (1 - (targetDbm - -95) / 65);
 
-          ctx.fillStyle = '#1e053e';
-          ctx.strokeStyle = maxDelta <= 0 ? '#10b981' : '#f87171';
+          ctx.fillStyle = '#1f0640';
+          ctx.strokeStyle = maxDelta <= 0 ? '#34d399' : '#f87171';
           ctx.lineWidth = 1.2 * dpr;
           ctx.beginPath();
           ctx.roundRect(mx - 85 * dpr, my - 34 * dpr, 170 * dpr, 28 * dpr, 4 * dpr);
@@ -440,13 +440,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           ctx.font = `bold ${7.5 * dpr}px 'JetBrains Mono', monospace`;
           ctx.textAlign = 'center';
           ctx.fillText(`DELTA: ${maxDelta > 0 ? '+' : ''}${maxDelta} dBm (Ch ${maxCh})`, mx, my - 20 * dpr);
-          ctx.fillStyle = '#9c80bd';
+          ctx.fillStyle = '#b8a2d4';
           ctx.font = `${6.8 * dpr}px 'JetBrains Mono', monospace`;
           ctx.fillText(`Variación espectral entre sesiones`, mx, my - 10 * dpr);
         }
       } else {
         // Clean prompt without fake curves
-        ctx.fillStyle = '#9c80bd';
+        ctx.fillStyle = '#b8a2d4';
         ctx.font = `${8.5 * dpr}px 'JetBrains Mono', monospace`;
         ctx.textAlign = 'center';
         ctx.fillText(
@@ -460,12 +460,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
       if (currentBand !== '6ghz') {
         activeTicks.forEach((c) => {
           const x = padLeft + plotW * c.r;
-          ctx.fillStyle = c.f ? '#38bdf8' : '#9c80bd';
+          ctx.fillStyle = c.f ? '#ab85d9' : '#b8a2d4';
           ctx.font = `${7 * dpr}px 'JetBrains Mono', monospace`;
           ctx.textAlign = 'center';
           ctx.fillText(c.ch, x, h - padBottom + 14 * dpr);
           if (c.f) {
-            ctx.fillStyle = '#64748b';
+            ctx.fillStyle = '#b8a2d4';
             ctx.font = `${6 * dpr}px 'JetBrains Mono', monospace`;
             ctx.fillText(c.f, x, h - padBottom + 24 * dpr);
           }
@@ -486,7 +486,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
         <div className="hist-filter-left">
           <div className="hist-input-box">
             <i className="bi bi-calendar3"></i>
-            <span>{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })} (Hoy)</span>
+            <span>{new Date().toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' })} (Hoy)</span>
           </div>
 
           <div className="hist-band-group">
@@ -504,12 +504,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
               5.0 GHz
             </button>
             <button
-              className={`hist-btn ${bandFilter === '6ghz' ? 'active' : ''}`}
-              onClick={() => setBandFilter('6ghz')}
-            >
-              6.0 GHz
-            </button>
-            <button
               className={`hist-btn ${bandFilter === 'all' ? 'active' : ''}`}
               onClick={() => setBandFilter('all')}
             >
@@ -522,8 +516,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             onClick={() => setCongestionOnly(!congestionOnly)}
             style={{
               cursor: 'pointer',
-              border: congestionOnly ? '1px solid #f59e0b' : undefined,
-              backgroundColor: congestionOnly ? 'rgba(245, 158, 11, 0.15)' : undefined,
+              border: congestionOnly ? '1px solid #fbbf24' : undefined,
+              backgroundColor: congestionOnly ? 'rgba(251, 191, 36, 0.15)' : undefined,
               color: congestionOnly ? '#fbbf24' : undefined,
             }}
             title="Alternar entre todos los canales o solo los que presentan congestión o variación"
@@ -555,21 +549,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
       </div>
 
       {compareMessage && (
-        <div
-          style={{
-            backgroundColor: 'rgba(6, 182, 212, 0.15)',
-            border: '1px solid #06b6d4',
-            color: '#38bdf8',
-            fontSize: '0.74rem',
-            padding: '10px 16px',
-            borderRadius: '6px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontWeight: 600,
-          }}
-        >
-          <i className="bi bi-info-circle-fill"></i>
+        <div className={`aviso aviso-${tipoAviso}`} role="status">
+          <i className={`bi ${tipoAviso === 'ok' ? 'bi-check-circle-fill' : tipoAviso === 'error' ? 'bi-x-circle-fill' : 'bi-info-circle-fill'}`}></i>
           <span>{compareMessage}</span>
         </div>
       )}
@@ -633,7 +614,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <div className="delta-metric-box">
               <div className="d-metric-top">
                 <span className="d-lbl">AUDITORÍAS COMPARADAS</span>
-                <span className="d-gain" style={{ color: '#38bdf8' }}>
+                <span className="d-gain" style={{ color: '#ab85d9' }}>
                   {comparisonData?.session_1?.id && comparisonData?.session_2?.id
                     ? `#SES-${comparisonData.session_1.id} ➔ #SES-${comparisonData.session_2.id}`
                     : selectedSessions.length >= 2
@@ -673,14 +654,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <div className="delta-metric-box">
               <div className="d-metric-top">
                 <span className="d-lbl">CANALES ANALIZADOS</span>
-                <span className="d-gain" style={{ color: '#38bdf8' }}>
+                <span className="d-gain" style={{ color: '#ab85d9' }}>
                   {comparisonData?.deltas ? `${comparisonData.deltas.length} Canales` : '2.4G & 5G'}
                 </span>
               </div>
               <div className="d-val-row">
-                <span className="d-prev">{comparisonData?.session_1?.engine_type?.toUpperCase() || 'WLAN'}</span>
+                <span className="d-prev">{comparisonData?.session_1?.engine_type?.toUpperCase() || '—'}</span>
                 <i className="bi bi-arrow-right"></i>
-                <span className="d-cur">{comparisonData?.session_2?.engine_type?.toUpperCase() || 'WLAN'}</span>
+                <span className="d-cur">{comparisonData?.session_2?.engine_type?.toUpperCase() || '—'}</span>
               </div>
               <span className="d-sub-info">Transceptores de hardware sincronizados</span>
             </div>
@@ -710,12 +691,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           </div>
           <div className="hist-table-actions">
             <button
-              onClick={handlePurgeSimulated}
+              onClick={() => setConfirmacion({ tipo: 'purgar' })}
               className="btn-ses-view"
               style={{
-                backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                borderColor: '#f59e0b',
-                color: '#fcd34d',
+                backgroundColor: 'rgba(251, 191, 36, 0.15)',
+                borderColor: '#fbbf24',
+                color: '#fbbf24',
                 padding: '4px 10px',
                 fontSize: '0.68rem',
                 fontWeight: 700,
@@ -788,9 +769,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                             fontFamily: 'var(--font-mono)',
                             padding: '2px 6px',
                             borderRadius: '4px',
-                            backgroundColor: ses.engineType === 'windows' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                            border: `1px solid ${ses.engineType === 'windows' ? '#10b981' : '#38bdf8'}`,
-                            color: ses.engineType === 'windows' ? '#34d399' : '#7dd3fc',
+                            backgroundColor: ses.engineType === 'windows' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(171, 133, 217, 0.15)',
+                            border: `1px solid ${ses.engineType === 'windows' ? '#34d399' : '#ab85d9'}`,
+                            color: ses.engineType === 'windows' ? '#34d399' : '#d5c4ec',
                             fontWeight: 700,
                             whiteSpace: 'nowrap',
                           }}
@@ -798,7 +779,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                           {ses.engineLabel}
                         </span>
                       </td>
-                      <td className="cell-ses-col cell-mono" style={{ color: '#38bdf8', fontWeight: 600 }}>
+                      <td className="cell-ses-col cell-mono" style={{ color: '#ab85d9', fontWeight: 600 }}>
                         {ses.samplesCount.toLocaleString()} tramas
                       </td>
                       <td className="cell-ses-col cell-mono" style={{ color: 'var(--color6)' }}>
@@ -828,7 +809,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                               handleExportCsv(ses.rawId);
                             }}
                             className="btn-ses-view"
-                            style={{ backgroundColor: 'rgba(6, 182, 212, 0.15)', borderColor: '#06b6d4', color: '#38bdf8', padding: '4px 7px' }}
+                            style={{ backgroundColor: 'rgba(171, 133, 217, 0.15)', borderColor: '#ab85d9', color: '#ab85d9', padding: '4px 7px' }}
                             title="Descargar muestras CSV de esta sesión"
                           >
                             <i className="bi bi-file-earmark-spreadsheet"></i>
@@ -839,7 +820,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                               handleExportSessionPdf(ses.rawId);
                             }}
                             className="btn-ses-view"
-                            style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: '#10b981', color: '#34d399', padding: '4px 7px' }}
+                            style={{ backgroundColor: 'rgba(52, 211, 153, 0.15)', borderColor: '#34d399', color: '#34d399', padding: '4px 7px' }}
                             title="Generar dictamen técnico PDF de esta sesión"
                           >
                             <i className="bi bi-file-earmark-pdf"></i>
@@ -847,7 +828,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                           <button
                             onClick={(e) => handleDeleteSession(ses.rawId, e)}
                             className="btn-ses-view"
-                            style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444', color: '#fca5a5', padding: '4px 7px' }}
+                            style={{ backgroundColor: 'rgba(248, 113, 113, 0.15)', borderColor: '#f87171', color: '#f87171', padding: '4px 7px' }}
                             title="Eliminar permanentemente esta sesión de SQLite"
                           >
                             <i className="bi bi-trash3"></i>
@@ -881,7 +862,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
         >
           <div
             style={{
-              backgroundColor: '#1b0933',
+              backgroundColor: '#1f0640',
               border: '1px solid #583383',
               borderRadius: '10px',
               width: '100%',
@@ -901,18 +882,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '16px 20px',
-                borderBottom: '1px solid #3d1b64',
-                backgroundColor: '#230b42',
+                borderBottom: '1px solid #401d6b',
+                backgroundColor: '#1f0640',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <i className="bi bi-hdd-network" style={{ color: '#06b6d4', fontSize: '1.2rem' }}></i>
+                <i className="bi bi-hdd-network" style={{ color: '#ab85d9', fontSize: '1.2rem' }}></i>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '0.95rem', color: '#fff' }}>
                     Detalle de Sesión: {detailSession.id}
                   </h3>
-                  <span style={{ fontSize: '0.72rem', color: '#9c80bd' }}>
-                    {detailSession.date} • {detailSession.channels} • {detailSession.occupancy}
+                  <span style={{ fontSize: '0.72rem', color: '#b8a2d4' }}>
+                    {detailSession.date} • {detailSession.engineLabel} • {detailSession.samplesCount.toLocaleString('es-PE')} lecturas
                   </span>
                 </div>
               </div>
@@ -921,7 +902,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#9c80bd',
+                  color: '#b8a2d4',
                   fontSize: '1.2rem',
                   cursor: 'pointer',
                   padding: '4px 8px',
@@ -941,16 +922,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                   marginBottom: '12px',
                 }}
               >
-                <span style={{ fontSize: '0.76rem', color: '#38bdf8', fontWeight: 600 }}>
+                <span style={{ fontSize: '0.76rem', color: '#ab85d9', fontWeight: 600 }}>
                   Muestras Capturadas en Hardware ({detailSamples.length} registros)
                 </span>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   onClick={() => handleExportCsv(detailSession.rawId)}
                   style={{
-                    backgroundColor: 'rgba(6, 182, 212, 0.2)',
-                    border: '1px solid #06b6d4',
-                    color: '#38bdf8',
+                    backgroundColor: 'rgba(171, 133, 217, 0.2)',
+                    border: '1px solid #ab85d9',
+                    color: '#ab85d9',
                     padding: '4px 10px',
                     borderRadius: '4px',
                     fontSize: '0.72rem',
@@ -966,8 +947,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                 <button
                   onClick={() => handleExportSessionPdf(detailSession.rawId)}
                   style={{
-                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                    border: '1px solid #10b981',
+                    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+                    border: '1px solid #34d399',
                     color: '#34d399',
                     padding: '4px 10px',
                     borderRadius: '4px',
@@ -985,18 +966,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             </div>
 
               {isLoadingSamples ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#9c80bd', fontSize: '0.85rem' }}>
+                <div style={{ textAlign: 'center', padding: '40px', color: '#b8a2d4', fontSize: '0.85rem' }}>
                   <i className="bi bi-arrow-repeat" style={{ display: 'inline-block', marginRight: '8px' }}></i>
                   Cargando muestras de la base de datos...
                 </div>
               ) : detailSamples.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px', color: '#9c80bd', fontSize: '0.8rem', backgroundColor: '#130526', borderRadius: '6px' }}>
+                <div style={{ textAlign: 'center', padding: '30px', color: '#b8a2d4', fontSize: '0.8rem', backgroundColor: '#1f0640', borderRadius: '6px' }}>
                   No se registran muestras individuales para esta captura o fue una sesión temporal.
                 </div>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #3d1b64', textAlign: 'left', color: '#9c80bd' }}>
+                    <tr style={{ borderBottom: '1px solid #401d6b', textAlign: 'left', color: '#b8a2d4' }}>
                       <th style={{ padding: '6px 8px' }}>SSID</th>
                       <th style={{ padding: '6px 8px' }}>BSSID (MAC)</th>
                       <th style={{ padding: '6px 8px' }}>CANAL</th>
@@ -1009,13 +990,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
                     {detailSamples.slice(0, 50).map((sample: any, idx: number) => (
                       <tr key={idx} style={{ borderBottom: '1px solid rgba(88, 51, 131, 0.2)' }}>
                         <td style={{ padding: '6px 8px', color: '#fff', fontWeight: 600 }}>{sample.ssid || '<Oculto>'}</td>
-                        <td style={{ padding: '6px 8px', color: '#9c80bd', fontFamily: 'monospace' }}>{sample.bssid}</td>
-                        <td style={{ padding: '6px 8px', color: '#38bdf8' }}>Ch {sample.channel} ({sample.band || '2.4G'})</td>
-                        <td style={{ padding: '6px 8px', color: sample.rssi >= -65 ? '#10b981' : sample.rssi >= -80 ? '#f59e0b' : '#ef4444', fontWeight: 700 }}>
+                        <td style={{ padding: '6px 8px', color: '#b8a2d4', fontFamily: 'monospace' }}>{sample.bssid}</td>
+                        <td style={{ padding: '6px 8px', color: '#ab85d9' }}>Ch {sample.channel} ({sample.band || '—'})</td>
+                        <td style={{ padding: '6px 8px', color: sample.rssi >= -65 ? '#34d399' : sample.rssi >= -80 ? '#fbbf24' : '#f87171', fontWeight: 700 }}>
                           {sample.rssi} dBm
                         </td>
-                        <td style={{ padding: '6px 8px', color: '#e2e8f0' }}>{sample.quality || sample.link_quality || Math.min(100, Math.max(0, 2 * (sample.rssi + 100)))}%</td>
-                        <td style={{ padding: '6px 8px', color: '#9c80bd' }}>{sample.security || sample.auth || 'WPA2-PSK'}</td>
+                        <td style={{ padding: '6px 8px', color: '#ffffff' }}>{sample.quality || sample.link_quality || Math.min(100, Math.max(0, 2 * (sample.rssi + 100)))}%</td>
+                        <td style={{ padding: '6px 8px', color: '#b8a2d4' }}>{sample.security || sample.auth || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1027,18 +1008,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
             <div
               style={{
                 padding: '12px 20px',
-                borderTop: '1px solid #3d1b64',
+                borderTop: '1px solid #401d6b',
                 display: 'flex',
                 justifyContent: 'flex-end',
-                backgroundColor: '#230b42',
+                backgroundColor: '#1f0640',
               }}
             >
               <button
                 onClick={() => setDetailSession(null)}
                 style={{
-                  backgroundColor: '#3d1b64',
+                  backgroundColor: '#401d6b',
                   border: '1px solid #583383',
-                  color: '#e2e8f0',
+                  color: '#ffffff',
                   padding: '6px 14px',
                   borderRadius: '4px',
                   fontSize: '0.74rem',
@@ -1051,6 +1032,23 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onGeneratePdf }) => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        abierto={confirmacion !== null}
+        titulo={confirmacion?.tipo === 'purgar' ? 'Eliminar sesiones de prueba' : 'Eliminar sesión'}
+        mensaje={
+          confirmacion?.tipo === 'eliminar'
+            ? `Se borrará la sesión #${confirmacion.rawId} y todas sus lecturas. Esta acción no se puede deshacer.`
+            : 'Se borrarán todas las sesiones de simulación y de prueba. Las auditorías reales capturadas con hardware se conservan.'
+        }
+        textoConfirmar="Eliminar"
+        peligroso
+        onConfirmar={() => {
+          if (confirmacion?.tipo === 'eliminar') eliminarSesion(confirmacion.rawId);
+          else handlePurgeSimulated();
+        }}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   );
 };
