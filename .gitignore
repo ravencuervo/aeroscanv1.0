@@ -32,11 +32,15 @@ env.bak/
 venv.bak/
 
 # PyInstaller / Build Artifacts
-build/
-dist/
+/build/
+/dist/
 *.manifest
 *.spec
 !build_scripts/aeroscan.spec
+
+# Ensure built production frontend bundle is distributed in Git for all clones/pulls
+!app/web/dist/
+!app/web/dist/**
 
 # SQLite & Data files
 data/*.db
