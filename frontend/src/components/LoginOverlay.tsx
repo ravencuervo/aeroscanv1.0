@@ -106,53 +106,11 @@ export const LoginOverlay: React.FC<LoginOverlayProps> = ({ onLoginSuccess }) =>
                   v1.0.0
                 </span>
               </div>
-              <p>Auditoría Espectral • FIEI UNA Puno</p>
             </div>
           </div>
 
           <div className="login-welcome-text">
             <h3>Iniciar Sesión</h3>
-          </div>
-
-          {/* Quick Credential Hint */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              marginBottom: '16px',
-              fontSize: '0.74rem',
-              color: '#94a3b8',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <i className="bi bi-info-circle-fill" style={{ color: '#38bdf8' }}></i>
-              <span>Operador: <strong style={{ color: '#e2e8f0' }}>admin</strong> / <strong style={{ color: '#e2e8f0' }}>admin123</strong></span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setUsername('admin');
-                setPassword('admin123');
-              }}
-              style={{
-                background: 'rgba(56, 189, 248, 0.15)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
-                color: '#38bdf8',
-                borderRadius: '4px',
-                padding: '2px 8px',
-                fontSize: '0.68rem',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-              title="Autocompletar credenciales por defecto"
-            >
-              Autocompletar
-            </button>
           </div>
 
           {error && (
