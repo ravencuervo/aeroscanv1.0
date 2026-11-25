@@ -42,37 +42,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div className="sidebar-title-h1">AeroScan</div>
-                <span
-                  style={{
-                    fontSize: '0.6rem',
-                    fontFamily: 'var(--font-mono)',
-                    padding: '1px 5px',
-                    borderRadius: '4px',
-                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                    border: '1px solid #38bdf8',
-                    color: '#7dd3fc',
-                    fontWeight: 700,
-                  }}
-                >
-                  v1.0.0
-                </span>
+                <span className="sidebar-version">v1.0.0</span>
               </div>
-              <div className="sidebar-title-sub">WiFi Spectrum Analytics • UNA Puno</div>
+              <div className="sidebar-title-sub">Análisis del espectro WiFi</div>
             </div>
           </div>
 
           <div className="sidebar-status-pill">
             <span>
-              <span
-                className="sidebar-dot-active"
-                style={{
-                  backgroundColor: isCapturing ? '#10b981' : '#f59e0b',
-                  boxShadow: isCapturing ? '0 0 8px #10b981' : '0 0 8px #f59e0b',
-                }}
-              ></span>{' '}
-              MOTOR RF: {isCapturing ? 'ACTIVO' : 'DETENIDO'}
+              <span className={`sidebar-dot-active ${isCapturing ? 'ok' : 'warn'}`}></span>{' '}
+              Captura: {isCapturing ? 'activa' : 'detenida'}
             </span>
-            <span>40MHz FFT</span>
           </div>
         </div>
 
@@ -82,10 +62,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               className="sidebar-new-audit-action"
               onClick={onOpenNewSession}
-              title="Iniciar nueva auditoría formal en SQLite"
+              title="Iniciar una nueva auditoría (sesión de captura)"
             >
               <i className="bi bi-plus-circle-fill"></i>
-              <span>NUEVA AUDITORÍA</span>
+              <span>Nueva auditoría</span>
             </button>
           )}
 
@@ -134,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onTabChange('config')}
           >
             <i className="bi bi-sliders"></i>
-            <span>Configuración / Hardware</span>
+            <span>Configuración</span>
           </button>
 
           <div className="sidebar-divider"></div>
@@ -144,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onTabChange('sdr')}
           >
             <i className="bi bi-cpu"></i>
-            <span>Diagnóstico SDR</span>
+            <span>Diagnóstico de hardware</span>
           </button>
 
           <button
@@ -157,7 +137,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div className="sidebar-divider"></div>
 
-          {/* User Requested: Boton de Cerrar Sesión */}
           <button
             className="sidebar-menu-btn sidebar-logout-btn"
             onClick={onLogout}
@@ -169,50 +148,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Bottom Buffer FIFO Meter or SDR Storage */}
+      {/* Datos reales del sistema: sin valores inventados */}
       <div className="sidebar-footer-box">
-        {activeTab === 'history' ? (
-          <>
-            <div className="buffer-header">
-              <span>ALMACENAMIENTO BD</span>
-              <span className="buffer-val" style={{ color: '#38bdf8' }}>
-                {systemInfo?.db_size_formatted || '0.24 MB'}
-              </span>
-            </div>
-            <div className="buffer-progress-bar">
-              <div
-                className="buffer-progress-fill"
-                style={{
-                  width: `${Math.min(100, Math.max(5, systemInfo?.disk_usage_percent || 12))}%`,
-                  background: 'linear-gradient(90deg, #06b6d4, #10b981)',
-                }}
-              ></div>
-            </div>
-            <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-              Libre: {systemInfo?.disk_free_formatted || '84.2 GB'} / {systemInfo?.disk_total_formatted || '512 GB'}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="buffer-header">
-              <span>BUFFER FIFO</span>
-              <span className="buffer-val" style={{ color: '#38bdf8' }}>
-                {totalPackets > 0 ? `${totalPackets} tramas` : '4.2 KB / RAM'}
-              </span>
-            </div>
-            <div className="buffer-progress-bar">
-              <div
-                className="buffer-progress-fill"
-                style={{
-                  width: `${Math.min(100, Math.max(8, ((totalPackets || 15) % 1000) / 10))}%`,
-                }}
-              ></div>
-            </div>
-            <div style={{ fontSize: '0.58rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: '3px' }}>
-              Base SQLite WAL: {systemInfo?.db_size_formatted || '0.24 MB'}
-            </div>
-          </>
-        )}
+        <div className="buffer-header">
+          <span>Lecturas procesadas</span>
+          <span className="buffer-val">{totalPackets.toLocaleString('es-PE')}</span>
+        </div>
+        <div className="buffer-header">
+          <span>Base de datos</span>
+          <span className="buffer-val">{systemInfo?.db_size_formatted || '—'}</span>
+        </div>
       </div>
     </aside>
   );
